@@ -1,22 +1,183 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import DashboardLayout from './layout';
-import Home from './pages/home'; 
-import Reports from './pages/recports'; 
-import AddMedicine from "./pages/add-medicine"
+import React, { Suspense } from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import DashboardLayout from "./layout";
+import "./App.css";
+import ProtectedRoute from "./components/protected-route";
+import { useSelector } from "react-redux";
 
-import "./App.css"
+import RestockPurchase from "./pages/restock-purchase"
+import BarcodeScanner from "./pages/barcode";
+// Lazy loaded pages
+const Home = React.lazy(() => import("./pages/home"));
+const Reports = React.lazy(() => import("./pages/recports"));
+const MedicineInventory = React.lazy(() => import("./pages/inventory"));
+const AddEmployee = React.lazy(() => import("./pages/add-employess"));
+const ManageEmployees = React.lazy(() => import("./pages/manage-employees"));
+const UpdateEmployee = React.lazy(() => import("./pages/update-employee"));
+const AddSale = React.lazy(() => import("./pages/add-sale"));
+const AddSupplierPurchase = React.lazy(() =>
+  import("./pages/add-supplier-purchase")
+);
+const LoginPage = React.lazy(() => import("./pages/login"));
+const ViewSuppliers = React.lazy(() => import("./pages/view-suppliers"));
+const ViewInvoices = React.lazy(() => import("./pages/view-invoices"));
+const ViewSales = React.lazy(() => import("./pages/view-sales"));
 
 const App = () => {
+  const user = useSelector((state) => state.auth.user);
+ 
   return (
     <Router>
-      <Routes>
-        <Route path="/" element={<DashboardLayout />}>
-          <Route index element={<Home />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="add-medicine" element={<AddMedicine />} />
-        </Route>
-      </Routes>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Routes>
+          <Route path="/auth/login" element={<LoginPage />} />
+
+          {/* All other routes go under protected route */}
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin", "employee"]}>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route
+              index
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <Home />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="reports"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <Reports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="medicine-inventory"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <MedicineInventory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="add-employee"
+              element={
+                <ProtectedRoute user={user} allowedRoles={["admin"]}>
+                  <AddEmployee />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="manage-employees"
+              element={
+                <ProtectedRoute user={user} allowedRoles={["admin"]}>
+                  <ManageEmployees />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="add-sale"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <AddSale />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="add-supplier"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <AddSupplierPurchase />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="view-supplier"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <ViewSuppliers />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="view-sold-products"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <ViewSales />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="view-sales-invoices"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin", "employee"]}
+                >
+                  <ViewInvoices />
+                </ProtectedRoute>
+              }
+            />
+          </Route>
+          <Route
+            path="update-employee/:employeeId"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin"]}>
+                <UpdateEmployee />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="sale/restock"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin","employee"]}>
+                <RestockPurchase />
+              </ProtectedRoute>
+            }
+          />
+
+         <Route
+            path="barcode/scan"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin","employee"]}>
+                <BarcodeScanner />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
     </Router>
   );
 };

@@ -3,3 +3,16 @@
   padding: 0;
   box-sizing: border-box;
 }
+
+/* .table-row-light {
+  background-color: #f9f9f9;
+}
+.table-row-dark {
+  background-color: #ffffff;
+} */
+
+.error {
+  color: red;
+  font-size: 13px;
+  margin-top: 4px;
+}

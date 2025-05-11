@@ -1,126 +1,114 @@
-import React, { useState } from 'react';
-import {
-  DesktopOutlined,
-  FileOutlined,
-  PieChartOutlined,
-  TeamOutlined,
-  UserOutlined,
-} from '@ant-design/icons';
-import { Breadcrumb, Layout, Menu, theme } from 'antd';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Button, Layout, Menu } from "antd";
+import { LogoutOutlined } from "@ant-design/icons";
+import { Outlet, useNavigate } from "react-router-dom";
+// import { useSelector } from 'react-redux';
+import React from "react";
+import { menuItems } from "../constants/menuItems";
+import { useSelector } from "react-redux";
+import { themes } from "./../providers/themeDefinations";
 
-const { Header, Content, Footer, Sider } = Layout;
+const { Header, Sider, Content } = Layout;
 
-function getItem(label, key, icon, children) {
-  return {
-    key,
-    icon,
-    children,
-    label,
-  };
-}
-
-const Index = () => {
+const DashboardLayout = () => {
   const navigate = useNavigate();
+  const { currentTheme } = useSelector((state) => state.theme);
+  const layoutTheme = themes[currentTheme]?.components?.Layout;
+  const user = useSelector((state) => state.auth.user);
 
-  const location = useLocation();
+  const filteredMenu = menuItems
+    .filter((item) => item.roles.includes(user?.role))
+    .map((item) => {
+      if (item.children) {
+        const children = item.children.filter((child) =>
+          child.roles.includes(user?.role)
+        );
+        return {
+          key: item.key,
+          label: item.label,
+          children: children.map((child) => ({
+            key: child.key,
+            label: child.label,
+            path: child.path,
+          })),
+        };
+      }
+      return {
+        key: item.key,
+        label: item.label,
+        path: item.path,
+      };
+    });
 
-  const breadcrumbNameMap = {
-      '': 'Home',
-    reports: 'Reports',
-    user: 'User',
-    tom: 'Tom',
-    bill: 'Bill',
-    alex: 'Alex',
-    team: 'Team',
-    team1: 'Team 1',
-    team2: 'Team 2',
-    files: 'Files',
+  const handleClick = ({ key }) => {
+    const flatItems = [];
+    const flatten = (items) => {
+      items.forEach((item) => {
+        if (item.children) flatten(item.children);
+        else flatItems.push(item);
+      });
+    };
+    flatten(filteredMenu);
+    const found = flatItems.find((item) => item.key === key);
+    if (found?.path) navigate(found.path);
   };
 
-  const pathSnippets = location.pathname.split('/').filter(i => i);
-
-  const [collapsed, setCollapsed] = useState(false);
-  const {
-    token: { colorBgContainer, borderRadiusLG },
-  } = theme.useToken();
-
-  const items = [
-    getItem('Dashboard', '/', <PieChartOutlined />),
-    getItem('Reports', '/reports', <DesktopOutlined />),
-    getItem('User', 'sub1', <UserOutlined />, [
-      getItem('Tom', '/user/tom'),
-      getItem('Bill', '/user/bill'),
-      getItem('Alex', '/user/alex'),
-    ]),
-    getItem('Team', 'sub2', <TeamOutlined />, [
-      getItem('Team 1', '/team/team1'),
-      getItem('Team 2', '/team/team2'),
-    ]),
-    getItem('Files', '/files', <FileOutlined />),
-  ];
-
-  const handleMenuClick = ({ key }) => {
-    navigate(key);
-  };
-
-
-  const breadcrumbItems = [
-    <Breadcrumb.Item key="dashboard" onClick={() => navigate('/')}>
-      Dashboard
-    </Breadcrumb.Item>,
-    ...(pathSnippets.length === 0
-      ? [
-          <Breadcrumb.Item key="home" onClick={() => navigate('/')}>
-            Home
-          </Breadcrumb.Item>,
-        ]
-      : pathSnippets.map((snippet, index) => {
-          const url = `/${pathSnippets.slice(0, index + 1).join('/')}`;
-          const name = breadcrumbNameMap[snippet] || snippet;
-          return (
-            <Breadcrumb.Item key={url} onClick={() => navigate(url)}>
-              {name.charAt(0).toUpperCase() + name.slice(1)}
-            </Breadcrumb.Item>
-          );
-        })),
-  ];
-  
+  console.log('sddd', layoutTheme)
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Sider collapsible collapsed={collapsed} onCollapse={value => setCollapsed(value)}>
-        <div className="demo-logo-vertical" />
+    <Layout style={{ minHeight: "100vh" }}>
+      <Sider
+        width={220}
+        style={{
+          background: layoutTheme?.siderBg,
+          color: layoutTheme?.siderColor,
+          padding: "1rem",
+        }}
+      >
+        <div style={{ fontSize: 20, fontWeight: "bold", padding: 20, color: layoutTheme?.
+headerBg
+, }}>
+          PHARMACIA
+        </div>
         <Menu
-          theme="dark"
-          defaultSelectedKeys={['/']}
           mode="inline"
-          items={items}
-          onClick={handleMenuClick}
+          // theme="dark"
+          defaultOpenKeys={[
+            "inventory",
+            "suppliers",
+            "employees",
+            "customers",
+            "reports",
+          ]}
+          onClick={handleClick}
+          items={filteredMenu}
         />
       </Sider>
-      <Layout>
-        <Header style={{ padding: 0, background: colorBgContainer }} />
-        <Content style={{ margin: '0 16px' }}>
-        <Breadcrumb style={{ margin: '16px 0' }}>{breadcrumbItems}</Breadcrumb>
 
-          <div
-            style={{
-              padding: 24,
-              minHeight: 360,
-              background: colorBgContainer,
-              borderRadius: borderRadiusLG,
-            }}
-          >
-            <Outlet />
+      <Layout>
+        <Header
+          style={{
+            // background: '#0a3a66',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "0 24px",
+            color: "white",
+            background: layoutTheme?.headerBg,
+            // padding: '0 1rem',
+          }}
+        >
+          <div>
+            <LogoutOutlined style={{ marginRight: 8 }} />
+            Logout (Logged in as {user?.userName})
           </div>
+        </Header>
+
+        <Content style={{ margin: "24px", padding: 24 }}>
+          <Outlet />
         </Content>
-        <Footer style={{ textAlign: 'center' }}>
-          Rashid's Pharmacy ©{new Date().getFullYear()} PVT LTD
-        </Footer>
       </Layout>
     </Layout>
   );
 };
 
-export default Index;
+export default DashboardLayout;
