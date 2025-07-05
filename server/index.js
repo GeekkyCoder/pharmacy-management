@@ -37,8 +37,8 @@ app.use(cors({
   })
 
 
+  app.use("/admin", AdminRouter) 
  app.use("/dashboard", dashboardRouter)
- app.use("/admin", AdminRouter) 
  app.use("/employee", EmployeeRouter) 
  app.use("/purchase", PurchaseRouter) 
  app.use("/medicine", MedicineRouter) 

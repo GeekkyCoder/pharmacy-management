@@ -3,6 +3,7 @@ const asyncWrapper = require("../../middlewares/async-wrapper");
 const Admin = require("../../models/admin");
 
 const createAdmin = asyncWrapper(async (req, res, next) => {
+  console.log("hello")
   const payload = req.body;
 
   const adminDup = await Admin.findOne({ A_ID: payload?.A_ID });
@@ -10,13 +11,13 @@ const createAdmin = asyncWrapper(async (req, res, next) => {
     return next(createCustomError("Duplicate Information", 404));
   }
 
-  if (payload?.A_ID || payload?.A_Password || payload?.A_Email) {
+  if (!payload?.A_ID || !payload?.A_Password || !payload?.A_Username) {
     return next(createCustomError("admin information needed", 404));
   }
 
   const { A_ID, A_Username, A_Password } = payload;
 
-  const token = "324232342423";
+  const token = "admintoken122MaeWaziToken";
 
   const newAdmin = new Admin({
     A_ID,
