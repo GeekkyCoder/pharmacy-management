@@ -5,7 +5,7 @@ import * as Yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
 import { login, logout, Employeelogin } from "../../redux/slices/authSlice";
 import { v4 as uuidv4 } from "uuid";
-import "./Login.css"; // we'll style the background, card position, etc.
+import "./login.css"
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
 import { useNavigate } from "react-router-dom";
