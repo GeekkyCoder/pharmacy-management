@@ -26,9 +26,8 @@ app.use(morgan("short"));
 app.use(helmet());
 // app.use(mongooseSanitize());
 app.use(cors({
-    origin:"https://rashid-pharmacy-management-fe.onrender.com",
-    credentials:true
-  }));
+  origin: '*'
+}));
 
 
   app.get("/hello", (req,res,next) => {
