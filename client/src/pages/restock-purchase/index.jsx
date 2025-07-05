@@ -6,7 +6,8 @@ import dayjs from "dayjs";
 import { useSelector } from "react-redux";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { restockMedicine } from "./apiCalls";
 import axios from "axios"
 
 const { Title } = Typography;
@@ -14,31 +15,32 @@ const { Title } = Typography;
 const RestockMedicineForm = (props) => {
   const user = useSelector((state) => state?.auth?.user);
 
+  const navigate = useNavigate();
+
   const location = useLocation()
 
-  const { medicineData } = location.state
+  const { medicineData,canAddMore } = location.state
+
+  console.log("medicineData", medicineData)
 
 
   const initialValues = {
     Sup_Name: medicineData?.Sup_Name || "",
     Sup_Phno: medicineData?.Sup_Phno || "",
-    purchases: [
-      {
-        P_Name: medicineData?.Med_Name || "",
-        P_Qty: medicineData?.Med_Qty || 1,
-        P_Cost: medicineData?.Med_Price || 0,
-        Mfg_Date: medicineData?.Manufacture_Date,
-        Exp_Date: medicineData?.Expiry_Date,
-        Pur_Date: medicineData?.Purchase_Date,
-      },
-    ],
+    purchase: {
+      P_Name: medicineData?.Med_Name || "",
+      P_Qty: medicineData?.Med_Qty || 1,
+      P_Cost: medicineData?.Med_Price || 0,
+      Mfg_Date: medicineData?.Manufacture_Date,
+      Exp_Date: medicineData?.Expiry_Date,
+      Pur_Date: medicineData?.Purchase_Date,
+    },
   };
 
   const validationSchema = Yup.object().shape({
-    Sup_Name: Yup.string().required("Name is required"),
-    Sup_Phno: Yup.string().required("Phone is required"),
-    purchases: Yup.array().of(
-      Yup.object().shape({
+    Sup_Name: Yup.string().nullable(),
+    Sup_Phno: Yup.string().nullable(),
+    purchase: Yup.object().shape({
         P_Name: Yup.string().required("Medicine Name is required"),
         P_Qty: Yup.number().positive().required("Quantity is required"),
         P_Cost: Yup.number().positive().required("Cost is required"),
@@ -46,21 +48,26 @@ const RestockMedicineForm = (props) => {
         Exp_Date: Yup.mixed().required("Required"),
         Pur_Date: Yup.mixed().required("Required"),
       })
-    ),
   });
 
   const handleSubmit = async (values, resetForm) => {
     props.setLoading(true);
 
     const body = {
-      ...values,
-      purchaseMadeBy: user?._id,
+      _id: medicineData?._id,
+      Med_Name: values?.purchase?.P_Name,
+      Med_Qty: values?.purchase?.P_Qty,
+      Med_Price: values?.purchase?.P_Cost,
+      Manufacture_Date: values?.purchase?.Mfg_Date,
+      Expiry_Date: values?.purchase?.Exp_Date,
+      Purchase_Date: values?.purchase?.Pur_Date,
     };
 
-    // Call the createPurchase API or any specific API for restocking
-    await createPurchase(body, onSuccess, onFailure);
+    // Calling the restockMedcine API
+    await restockMedicine(body, onSuccess, onFailure);
 
     resetForm();
+    navigate(-1)
     props.setLoading(false);
   };
 
@@ -77,132 +84,106 @@ const RestockMedicineForm = (props) => {
     <Card style={{ padding: 24 }}>
       <Title level={3}>Restock Medicine</Title>
       <Formik
-        initialValues={initialValues}
-        validationSchema={validationSchema}
-        onSubmit={async (values, { setSubmitting, resetForm }) => {
-          setSubmitting(true);
-          await handleSubmit(values, resetForm);
-          setSubmitting(false);
-        }}
-      >
-        {({ values, setFieldValue, touched, errors }) => (
-          <Form style={{ margin: "3em 0" }}>
-            <Divider orientation="left">Supplier Details</Divider>
-            <Row gutter={16}>
-              <Col span={8}>
-                <AntForm.Item label="Name">
-                  <Input value={values.Sup_Name} disabled />
-                </AntForm.Item>
-              </Col>
-              <Col span={8}>
-                <AntForm.Item label="Phone">
-                  <Input value={values.Sup_Phno} disabled />
-                </AntForm.Item>
-              </Col>
-            </Row>
+  initialValues={initialValues}
+  validationSchema={validationSchema}
+  onSubmit={async (values, { setSubmitting, resetForm }) => {
+    setSubmitting(true);
+    await handleSubmit(values, resetForm);
+    setSubmitting(false);
+  }}
+>
+  {({ values, setFieldValue, touched, errors, dirty }) => (
+    <Form style={{ margin: "3em 0" }}>
+      <Divider orientation="left">Supplier Details</Divider>
+      <Row gutter={16}>
+        <Col span={8}>
+          <AntForm.Item label="Name">
+            <Input value={values.Sup_Name} disabled />
+          </AntForm.Item>
+        </Col>
+        <Col span={8}>
+          <AntForm.Item label="Phone">
+            <Input value={values.Sup_Phno} disabled />
+          </AntForm.Item>
+        </Col>
+      </Row>
 
-            <Divider orientation="left">Purchase Details</Divider>
-            <FieldArray name="purchases">
-              {({ push, remove }) => (
-                <>
-                  {values.purchases.map((purchase, index) => {
-                    const total = (purchase.P_Qty || 0) * (purchase.P_Cost || 0);
-                    return (
-                      <Card
-                        key={index}
-                        type="inner"
-                        title={`Medicine #${index + 1}`}
-                        style={{ marginBottom: 24 }}
-                        extra={
-                          index > 0 && (
-                            <Button type="text" danger onClick={() => remove(index)}>
-                              Remove
-                            </Button>
-                          )
-                        }
-                      >
-                        <Row gutter={16}>
-                          <Col span={8}>
-                            <AntForm.Item label="Medicine Name">
-                              <Input value={purchase.P_Name} disabled />
-                            </AntForm.Item>
-                          </Col>
-                          <Col span={8}>
-                            <AntForm.Item label="Quantity">
-                              <InputNumber
-                                min={1}
-                                style={{ width: "100%" }}
-                                value={purchase.P_Qty}
-                                onChange={(val) => setFieldValue(`purchases[${index}].P_Qty`, val)}
-                              />
-                            </AntForm.Item>
-                          </Col>
-                          <Col span={8}>
-                            <AntForm.Item label="Price (per unit)">
-                              <InputNumber
-                                min={0}
-                                style={{ width: "100%" }}
-                                value={purchase.P_Cost}
-                                onChange={(val) => setFieldValue(`purchases[${index}].P_Cost`, val)}
-                              />
-                            </AntForm.Item>
-                          </Col>
-                        </Row>
+      <Divider orientation="left">Purchase Details</Divider>
+      <Card type="inner" title="Medicine">
+        <Row gutter={16}>
+          <Col span={8}>
+            <AntForm.Item label="Medicine Name">
+              <Input value={values.purchase.P_Name} disabled />
+            </AntForm.Item>
+          </Col>
+          <Col span={8}>
+            <AntForm.Item label="Quantity">
+              <InputNumber
+                min={1}
+                style={{ width: "100%" }}
+                value={values.purchase.P_Qty}
+                onChange={(val) => setFieldValue("purchase.P_Qty", val)}
+              />
+            </AntForm.Item>
+          </Col>
+          <Col span={8}>
+            <AntForm.Item label="Price (per unit)">
+              <InputNumber
+                min={0}
+                style={{ width: "100%" }}
+                value={values.purchase.P_Cost}
+                onChange={(val) => setFieldValue("purchase.P_Cost", val)}
+              />
+            </AntForm.Item>
+          </Col>
+        </Row>
 
-                        <Row gutter={16}>
-                          <Col span={8}>
-                            <AntForm.Item label="Purchase Date">
-                              <DatePicker style={{ width: "100%" }} value={dayjs(purchase.Pur_Date)} disabled />
-                            </AntForm.Item>
-                          </Col>
-                          <Col span={8}>
-                            <AntForm.Item label="Mfg Date">
-                              <DatePicker style={{ width: "100%" }} value={dayjs(purchase.Mfg_Date)} disabled />
-                            </AntForm.Item>
-                          </Col>
-                          <Col span={8}>
-                            <AntForm.Item label="Exp Date">
-                              <DatePicker style={{ width: "100%" }} value={dayjs(purchase.Exp_Date)} disabled />
-                            </AntForm.Item>
-                          </Col>
-                        </Row>
+        <Row gutter={16}>
+          <Col span={8}>
+            <AntForm.Item label="Purchase Date">
+              <DatePicker
+                style={{ width: "100%" }}
+                value={dayjs(values.purchase.Pur_Date)}
+                onChange={(val) => setFieldValue("purchase.Pur_Date", val)}
+              />
+            </AntForm.Item>
+          </Col>
+          <Col span={8}>
+            <AntForm.Item label="Mfg Date">
+              <DatePicker
+                style={{ width: "100%" }}
+                value={dayjs(values.purchase.Mfg_Date)}
+                onChange={(val) => setFieldValue("purchase.Mfg_Date", val)}
+              />
+            </AntForm.Item>
+          </Col>
+          <Col span={8}>
+            <AntForm.Item label="Exp Date">
+              <DatePicker
+                style={{ width: "100%" }}
+                value={dayjs(values.purchase.Exp_Date)}
+                onChange={(val) => setFieldValue("purchase.Exp_Date", val)}
+              />
+            </AntForm.Item>
+          </Col>
+        </Row>
 
-                        <p style={{ fontWeight: 500 }}>
-                          💰 <strong>Total:</strong> Rs. {total.toFixed(2)}
-                        </p>
-                      </Card>
-                    );
-                  })}
+        <p style={{ fontWeight: 500 }}>
+          💰 <strong>Total:</strong> Rs.{" "}
+          {(values.purchase.P_Qty * values.purchase.P_Cost).toFixed(2)}
+        </p>
+      </Card>
 
-                  <Button
-                    type="dashed"
-                    block
-                    onClick={() =>
-                      push({
-                        P_Name: "",
-                        P_Qty: 1,
-                        P_Cost: 0,
-                        Mfg_Date: dayjs(),
-                        Exp_Date: dayjs(),
-                        Pur_Date: dayjs(),
-                      })
-                    }
-                  >
-                    + Add More Medicine
-                  </Button>
-                </>
-              )}
-            </FieldArray>
+      <Divider />
+      <div style={{ textAlign: "center" }}>
+        <Button type="primary" disabled={!dirty} htmlType="submit" size="large">
+          Submit Restock
+        </Button>
+      </div>
+    </Form>
+  )}
+</Formik>
 
-            <Divider />
-            <div style={{ textAlign: "center" }}>
-              <Button type="primary" htmlType="submit" size="large">
-                Submit Restock
-              </Button>
-            </div>
-          </Form>
-        )}
-      </Formik>
     </Card>
   );
 };

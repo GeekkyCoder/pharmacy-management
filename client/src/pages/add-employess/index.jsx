@@ -27,8 +27,11 @@ const AddEmployee = (props) => {
   const validationSchema = Yup.object({
     E_Fname: Yup.string().required("First name is required"),
     E_Lname: Yup.string().required("Last name is required"),
+    E_Password: Yup.string().required("Password is required"),
     E_Sex: Yup.string().required("Sex is required"),
-    E_Phno: Yup.string().required("Phone is required"),
+    E_Phno: Yup.string()
+  .required("Phone is required")
+  .matches(/^03\d{9}$/, "Phone must start with 03 and be 11 digits"),
     E_date: Yup.date().required("Join date is required"),
   });
 
@@ -83,6 +86,7 @@ const AddEmployee = (props) => {
           initialValues={{
             E_Fname: "",
             E_Lname: "",
+            E_Password: "",
             E_Sex: "",
             E_Phno: "",
             E_date: "",
@@ -103,6 +107,7 @@ const AddEmployee = (props) => {
             errors,
             setFieldValue,
             isSubmitting,
+            dirty
           }) => (
             <Form
               layout="vertical"
@@ -148,6 +153,24 @@ const AddEmployee = (props) => {
 
                 <Col span={12}>
                   <Form.Item
+                    label="Password"
+                    validateStatus={
+                      touched.E_Password && errors.E_Password ? "error" : ""
+                    }
+                    help={touched.E_Password && errors.E_Password}
+                    {...formItemLayout}
+                  >
+                    <Input
+                      name="E_Password"
+                      value={values.E_Password}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col span={12}>
+                  <Form.Item
                     label="Sex"
                     validateStatus={
                       touched.E_Sex && errors.E_Sex ? "error" : ""
@@ -168,6 +191,7 @@ const AddEmployee = (props) => {
                   </Form.Item>
                 </Col>
 
+              
                 <Col span={12}>
                   <Form.Item
                     label="Phone"
@@ -207,6 +231,7 @@ const AddEmployee = (props) => {
               <div style={{ textAlign: "center" }}>
                 <Button
                   type="primary"
+                  disabled={!dirty || isSubmitting}
                   htmlType="submit"
                   style={{ padding: "6px 30px", backgroundColor: "#0070a4" }}
                 >

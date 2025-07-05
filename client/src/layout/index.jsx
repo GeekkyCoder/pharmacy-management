@@ -4,8 +4,9 @@ import { Outlet, useNavigate } from "react-router-dom";
 // import { useSelector } from 'react-redux';
 import React from "react";
 import { menuItems } from "../constants/menuItems";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { themes } from "./../providers/themeDefinations";
+import { logout } from "../redux/slices/authSlice";
 
 const { Header, Sider, Content } = Layout;
 
@@ -14,6 +15,13 @@ const DashboardLayout = () => {
   const { currentTheme } = useSelector((state) => state.theme);
   const layoutTheme = themes[currentTheme]?.components?.Layout;
   const user = useSelector((state) => state.auth.user);
+  const dispatch = useDispatch()
+
+
+  const handleLogout = async () => {
+    dispatch(logout())
+    navigate("/login");
+  }
 
   const filteredMenu = menuItems
     .filter((item) => item.roles.includes(user?.role))
@@ -64,10 +72,10 @@ const DashboardLayout = () => {
           padding: "1rem",
         }}
       >
-        <div style={{ fontSize: 20, fontWeight: "bold", padding: 20, color: layoutTheme?.
+        <div style={{ fontSize: 18, fontWeight: "bold", padding: 20, color: layoutTheme?.
 headerBg
 , }}>
-          PHARMACIA
+          Rashid Pharmacy
         </div>
         <Menu
           mode="inline"
@@ -98,7 +106,7 @@ headerBg
           }}
         >
           <div>
-            <LogoutOutlined style={{ marginRight: 8 }} />
+            <LogoutOutlined style={{ marginRight: 8 }} onClick={handleLogout} />
             Logout (Logged in as {user?.userName})
           </div>
         </Header>

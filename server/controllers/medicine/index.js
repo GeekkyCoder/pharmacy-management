@@ -60,10 +60,37 @@ const deleteMedicine = asyncWrapper(async (req, res, next) => {
   res.status(200).json({ message: "Medicine deleted successfully" });
 });
 
+
+const restockMedicine = asyncWrapper(async (req, res, next) => {
+  const medData = req.body;
+
+  console.log("medData", medData);
+
+  if (!medData?._id) {
+    return next(createCustomError("Medicine does not exist", 400));
+  }
+
+  const updatedMed = await Med.findByIdAndUpdate(medData?._id, medData, {
+    new: true,
+    runValidators: true,
+  });
+
+  if (!updatedMed) {
+    return next(createCustomError(`Medicine not found with ID: ${medData?._id}`, 404));
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Medicine updated successfully.",
+    data: updatedMed,
+  });
+});
+
 module.exports = {
   getAllMedicines,
   getMedicineById,
   getMedicineById,
   updateMedicine,
   deleteMedicine,
+  restockMedicine,
 };

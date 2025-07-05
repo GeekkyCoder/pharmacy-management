@@ -9,7 +9,7 @@ import RestockPurchase from "./pages/restock-purchase"
 import BarcodeScanner from "./pages/barcode";
 // Lazy loaded pages
 const Home = React.lazy(() => import("./pages/home"));
-const Reports = React.lazy(() => import("./pages/recports"));
+const SaleReports = React.lazy(() => import("./pages/sale-reports"));
 const MedicineInventory = React.lazy(() => import("./pages/inventory"));
 const AddEmployee = React.lazy(() => import("./pages/add-employess"));
 const ManageEmployees = React.lazy(() => import("./pages/manage-employees"));
@@ -22,6 +22,7 @@ const LoginPage = React.lazy(() => import("./pages/login"));
 const ViewSuppliers = React.lazy(() => import("./pages/view-suppliers"));
 const ViewInvoices = React.lazy(() => import("./pages/view-invoices"));
 const ViewSales = React.lazy(() => import("./pages/view-sales"));
+const UnAuthorized = React.lazy(() => import("./pages/unauthorized"));
 
 const App = () => {
   const user = useSelector((state) => state.auth.user);
@@ -31,6 +32,7 @@ const App = () => {
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
           <Route path="/auth/login" element={<LoginPage />} />
+          <Route  path="/unauthorized" element={<UnAuthorized/>}/>
 
           {/* All other routes go under protected route */}
           <Route
@@ -53,13 +55,13 @@ const App = () => {
               }
             />
             <Route
-              path="reports"
+              path="/sales-report"
               element={
                 <ProtectedRoute
                   user={user}
-                  allowedRoles={["admin", "employee"]}
+                  allowedRoles={["admin"]}
                 >
-                  <Reports />
+                  <SaleReports />
                 </ProtectedRoute>
               }
             />
@@ -96,7 +98,7 @@ const App = () => {
               element={
                 <ProtectedRoute
                   user={user}
-                  allowedRoles={["admin", "employee"]}
+                  allowedRoles={["admin","employee"]}
                 >
                   <AddSale />
                 </ProtectedRoute>
@@ -176,6 +178,8 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+
+
         </Routes>
       </Suspense>
     </Router>

@@ -33,11 +33,12 @@ import WithMessages from "../../hocs/messages";
 import generateInvoiceId from "../../utils/generateInvoiceId";
 import useModal from "../../components/modal/useModal";
 import Modal from "../../components/modal";
+import { useNavigate } from "react-router-dom";
 
 const { Title } = Typography;
 
 // Dummy Pharmacy Details
-const pharmacyName = "HealthPlus Pharmacy";
+const pharmacyName = "Rashid Pharmacy";
 const pharmacyLogo =
   "https://static.vecteezy.com/system/resources/previews/023/432/110/non_2x/low-poly-and-creative-medical-pharmacy-logo-design-design-concept-free-vector.jpg";
 
@@ -104,6 +105,8 @@ const AddSale = (props) => {
   const invoiceRef = useRef(null);
   const { modalOpen, toggleModal } = useModal();
   const user = useSelector((state) => state.auth.user);
+
+  const navigate = useNavigate()
 
   const calculateTotalAmount = useCallback(
     (values) => {
@@ -327,6 +330,7 @@ const AddSale = (props) => {
             printWindow.close();
             resetForm();
             setCurrentStep(0);
+            navigate(-1)
           };
         };
       }

@@ -111,7 +111,7 @@ const LoginPage = (props) => {
   return (
     <div className="login-wrapper">
       <div className="login-header">
-        <Title className="main-title">PHARMACIA</Title>
+        <Title className="main-title">Rashid Pharmacy</Title>
         <p className="sub-title">Pharmacy Management System</p>
       </div>
 
@@ -119,13 +119,13 @@ const LoginPage = (props) => {
         <Card className="login-card">
           <LoginForm
             role={role}
-            onSwitch={() => setRole(role === "Admin" ? "Employee" : "Admin")}
+            onSwitSubmitch={() => setRole(role === "Admin" ? "Employee" : "Admin")}
             onSubmit={handleLogin}
           />
         </Card>
       </div>
 
-      <div className="login-footer">Powered by Mae Wazi Software.</div>
+      <div className="login-footer">developed by <a style={{color:"white"}} target="_blank" href="https://github.com/GeekkyCoder">Faraz</a> </div>
     </div>
   );
 };

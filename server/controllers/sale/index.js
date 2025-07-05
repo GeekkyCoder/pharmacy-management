@@ -3,6 +3,7 @@ const Invoice = require("../../models/invoice");
 const Med = require("../../models/medicine");
 const asyncWrapper = require("../../middlewares/async-wrapper");
 const { createCustomError } = require("../../errors");
+const moment = require("moment");
 
 const createSaleAndInvoice = asyncWrapper(async (req, res, next) => {
   const {
@@ -95,7 +96,86 @@ const getAllSales = asyncWrapper(async (req, res,next) => {
   });
 });
 
+
+// const getSalesReport = asyncWrapper(async (req, res, next) => {
+//   const { startDate, endDate } = req.body;
+
+  
+
+//   if (!startDate || !endDate) {
+//     return next(createCustomError("Start date and end date are required", 400));
+//   }
+
+//   const start = new Date(`${startDate}T00:00:00.000Z`);
+//   const end = new Date(`${endDate}T23:59:59.999Z`);
+
+//   if (start > end) {
+//     return next(createCustomError("Start date must be before end date", 400));
+//   }
+
+//   const sales = await SalesItem.find({
+//     createdAt: {
+//       $gte: start,
+//       $lte: end,
+//     },
+//   })
+//     .populate("employeeId", "E_Username E_Fname E_Lname")
+//     .populate("medicines.Med_ID")
+//     .sort({ createdAt: -1 });
+
+//   return res.status(200).json({
+//     success: true,
+//     total: sales.length,
+//     data: sales,
+//   });
+// });
+
+
+const getSalesReport = asyncWrapper(async (req, res, next) => {
+  const { startDate, endDate, page = 1 } = req.body;
+
+  if (!startDate || !endDate) {
+    return next(createCustomError("Start date and end date are required", 400));
+  }
+
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T23:59:59.999Z`);
+
+  if (start > end) {
+    return next(createCustomError("Start date must be before end date", 400));
+  }
+
+  const skip = (page - 1) * 10;
+
+  const totalDocs = await SalesItem.countDocuments({
+    createdAt: { $gte: start, $lte: end },
+  });
+
+  const sales = await SalesItem.find({
+    createdAt: { $gte: start, $lte: end },
+  })
+    .populate("employeeId", "E_Username E_Fname E_Lname")
+    .populate("medicines.Med_ID")
+    .sort({ createdAt: -1 })
+    .skip(skip)
+    .limit(10);
+
+  return res.status(200).json({
+    success: true,
+    message: "Sales fetched successfully",
+    data: {
+      docs: sales,
+      totalDocsLength:totalDocs,
+      totalPages: Math.ceil(totalDocs / 10),
+      page: parseInt(page),
+    },
+  });
+});
+
+
+
 module.exports = {
   getAllSales,
+  getSalesReport,
   createSaleAndInvoice,
 };

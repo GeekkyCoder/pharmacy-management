@@ -38,7 +38,9 @@ const createEmployee = asyncWrapper(async (req, res, next) => {
     );
   }
 
-  const newEmployee = new Employee(req.body);
+
+
+  const newEmployee = new Employee({...req.body,E_Username: req.body.E_Fname + req.body.E_Lname});
   const savedEmployee = await newEmployee.save();
   return res
     .status(201)

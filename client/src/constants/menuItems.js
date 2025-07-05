@@ -47,7 +47,7 @@ const menuItems = [
       key: 'addSale',
       label: 'Add New Sale',
       path: '/add-sale',
-      roles: ['admin', 'employee'],
+      roles: ['admin','employee'],
     },
     {
       key: 'reports',
@@ -55,7 +55,7 @@ const menuItems = [
       roles: ['admin'],
       children: [
         { key: 'salesReport', label: 'Sales Report', path: '/sales-report', roles: ['admin'] },
-        { key: 'stockReport', label: 'Stock Report', path: '/stock-report', roles: ['admin'] },
+        // { key: 'stockReport', label: 'Stock Report', path: '/stock-report', roles: ['admin'] },
       ]
     }
   ];

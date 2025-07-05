@@ -106,7 +106,7 @@ const Dashboard = (props) => {
     };
 
     props.setLoading(false);
-    navigate("/sale/restock", { state: { medicineData } });
+    navigate("/sale/restock", { state: { medicineData,canAddMore:false } });
   };
 
 
