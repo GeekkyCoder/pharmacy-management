@@ -47,7 +47,7 @@ const menuItems = [
       key: 'addSale',
       label: 'Add New Sale',
       path: '/add-sale',
-      roles: ['admin','employee'],
+      roles: ['employee'],
     },
     {
       key: 'reports',
