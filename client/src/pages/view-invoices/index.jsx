@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Table, Typography, Input, Space } from "antd";
 import dayjs from "dayjs";
 
-import axios from "axios";
+import axios from "../../api/axios";
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -21,7 +21,7 @@ const ViewInvoices = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        "http://localhost:8000/invoice/getAllInvoices",
+        "/invoice/getAllInvoices",
         {
           params: { page, limit, search },
         }

@@ -38,7 +38,7 @@ import { useNavigate } from "react-router-dom";
 const { Title } = Typography;
 
 // Dummy Pharmacy Details
-const pharmacyName = "Rashid Pharmacy";
+const pharmacyName = "Al Shifa Pharmacy";
 const pharmacyLogo =
   "https://static.vecteezy.com/system/resources/previews/023/432/110/non_2x/low-poly-and-creative-medical-pharmacy-logo-design-design-concept-free-vector.jpg";
 
@@ -193,82 +193,114 @@ const AddSale = (props) => {
             <head>
               <title>Print Invoice</title>
               <style>
-                @page {
-                  margin: 0;
-                  size: 58mm 210mm;
-                }
+              @page {
+                margin: 0;
+                size: 58mm 210mm;
+              }
+            
+              body {
+                font-family: 'Courier New', monospace;
+                margin: 0;
+                padding: 0;
+                font-size: 10px;
+                line-height: 1.2;
+                background: white;
+                position: relative;
+                height: 100%;
+              }
+            
+              .print-container {
+                width: 58mm;
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                padding: 8px;
+                box-sizing: border-box;
+              }
+            
+              .header {
+                text-align: center;
+                margin-bottom: 10px;
+                border-bottom: 1px dashed #000;
+                padding-bottom: 5px;
+              }
+            
+              .logo {
+                max-width: 50px;
+                height: auto;
+                margin: 0 auto;
+                display: block;
+              }
+            
+              .pharmacy-name {
+                font-size: 14px;
+                font-weight: bold;
+                margin: 5px 0;
+              }
+            
+              .invoice-details {
+                margin: 8px 0;
+                font-size: 9px;
+              }
+            
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 5px 0;
+              }
+            
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 9px;
+                margin: 8px 0;
+              }
+            
+              th, td {
+                text-align: left;
+                padding: 3px 0;
+              }
+            
+              .item-row td {
+                border-bottom: 1px dotted #ccc;
+              }
+            
+              .total-section {
+                margin-top: 8px;
+                text-align: right;
+                font-weight: bold;
+              }
+            
+              .footer {
+                margin-top: 10px;
+                text-align: center;
+                font-size: 8px;
+                border-top: 1px dashed #000;
+                padding-top: 5px;
+              }
+            
+              @media print {
                 body {
-                  font-family: 'Courier New', monospace;
                   margin: 0;
-                  padding: 8px;
-                  width: 58mm;
-                  font-size: 10px;
-                  line-height: 1.2;
+                  padding: 0;
+                  height: 100%;
                 }
-                .header {
-                  text-align: center;
-                  margin-bottom: 10px;
-                  border-bottom: 1px dashed #000;
-                  padding-bottom: 5px;
+            
+                .print-container {
+                  position: absolute;
+                  left: 50%;
+                  transform: translateX(-50%);
                 }
-                .logo {
-                  max-width: 50px;
-                  height: auto;
-                  margin: 0 auto;
-                  display: block;
-                }
-                .pharmacy-name {
-                  font-size: 14px;
-                  font-weight: bold;
-                  margin: 5px 0;
-                }
-                .invoice-details {
-                  margin: 8px 0;
-                  font-size: 9px;
-                }
-                .divider {
-                  border-top: 1px dashed #000;
-                  margin: 5px 0;
-                }
-                table {
-                  width: 100%;
-                  border-collapse: collapse;
-                  font-size: 9px;
-                  margin: 8px 0;
-                }
-                th, td {
-                  text-align: left;
-                  padding: 3px 0;
-                }
-                .item-row td {
-                  border-bottom: 1px dotted #ccc;
-                }
-                .total-section {
-                  margin-top: 8px;
-                  text-align: right;
-                  font-weight: bold;
-                }
-                .footer {
-                  margin-top: 10px;
-                  text-align: center;
-                  font-size: 8px;
-                  border-top: 1px dashed #000;
-                  padding-top: 5px;
-                }
-                @media print {
-                  body { 
-                    margin: 0;
-                    padding: 0;
-                  }
-                }
-              </style>
+              }
+            </style>
+            
             </head>
             <body>
+            <div class="print-container">
               <div class="header">
                 <img src="${pharmacyLogo}" class="logo" alt="Logo">
                 <div class="pharmacy-name">${pharmacyName}</div>
                 <div>Medical Store & Pharmacy</div>
-                <div style="font-size: 8px">Colony No1 Guddu Road, Kashmore</div>
+                <div style="font-size: 8px">Al Shifa Diagnostic and clinic center near Edigah Kashmore</div>
                 <div style="font-size: 8px">Tel: (0314) 7320-407</div>
               </div>
 
@@ -316,6 +348,7 @@ const AddSale = (props) => {
                 <div>Thank you for your purchase!</div>
                 <div>Please keep this receipt for your records</div>
                 <div style="margin-top: 5px">*** End of Receipt ***</div>
+              </div>
               </div>
             </body>
           </html>
@@ -806,7 +839,7 @@ const AddSale = (props) => {
                   {Object.keys(invoiceData).length > 0 && (
                     <div
                       ref={invoiceRef}
-                      style={{ width: "58mm", padding: 10 }}
+                      style={{ width: "58mm", padding: 10, display:"block", margin:"0 auto" }}
                     >
                       <div style={{ textAlign: "center", marginBottom: 10 }}>
                         <img
