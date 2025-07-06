@@ -25,9 +25,7 @@ app.use(express.json());
 app.use(morgan("short"));
 app.use(helmet());
 // app.use(mongooseSanitize());
-app.use(cors({
-  origin: "https://pharmacy-management-sys.netlify.app",
-}));
+app.use(cors())
 
 
   app.get("/hello", (req,res,next) => {
