@@ -67,7 +67,7 @@ const LoginForm = ({ role, onSwitch, onSubmit }) => {
             Submit
           </Button>
 
-          <Button type="link" onClick={onSwitch} block>
+          <Button style={{margin:"2em 0"}} type="link" onClick={onSwitch} block>
             Click here for {role === "Admin" ? "Employee" : "Admin"} Login
           </Button>
         </Form>
@@ -119,7 +119,7 @@ const LoginPage = (props) => {
         <Card className="login-card">
           <LoginForm
             role={role}
-            onSwitSubmitch={() => setRole(role === "Admin" ? "Employee" : "Admin")}
+            onSwitch={() => setRole(role === "Admin" ? "Employee" : "Admin")}
             onSubmit={handleLogin}
           />
         </Card>
