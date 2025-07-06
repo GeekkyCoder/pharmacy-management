@@ -24,7 +24,7 @@ import {
 //   CartesianGrid,
 //   ResponsiveContainer,
 // } from "recharts";
-import axios from "axios";
+import axios from "../../api/axios.js"
 import {
   ShoppingCartOutlined,
   WarningOutlined,
@@ -51,7 +51,7 @@ const Dashboard = (props) => {
     const fetchDashboardData = async () => {
       try {
         const response = await axios.get(
-          "http://localhost:8000/dashboard/summary"
+          "/dashboard/summary"
         );
         setData(response.data);
       } catch (error) {
@@ -83,7 +83,7 @@ const Dashboard = (props) => {
   const fetchSupplierData = async (medName) => {
     try {
       const { data } = await axios.get(
-        `http://localhost:8000/purchase/getSupplierInfoByMedId/${medName}`
+        `/purchase/getSupplierInfoByMedId/${medName}`
       );
 
       return data?.supplierDetails;
@@ -189,13 +189,13 @@ const Dashboard = (props) => {
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col xs={24} md={12}>
           <Card title="Today's Sales">
-            <Statistic title="Total Sales" value={todaysSales.count}
+            <Statistic title="Total Sales" value={todaysSales?.count}
               valueStyle={{ color: appTheme?.token?.colorPrimary }}
             
             />
             <Statistic
               title="Total Revenue"
-              value={todaysSales.totalRevenue}
+              value={todaysSales?.totalRevenue}
               prefix="$"
               style={{ marginTop: 16 }}
               valueStyle={{ color: appTheme?.token?.colorPrimary }}
@@ -206,11 +206,11 @@ const Dashboard = (props) => {
 
         <Col xs={24} md={12}>
           <Card title="Expiring Soon">
-            {expiringSoon.length === 0 ? (
+            {expiringSoon?.length === 0 ? (
               <Empty description="No medicines expiring soon" />
             ) : (
               <ul>
-                {expiringSoon.slice(0, 5).map((med) => (
+                {expiringSoon?.slice(0, 5).map((med) => (
             
               <li key={med._id}   style={{ color: appTheme?.token?.colorPrimary}} >
                     {med.Med_Name} -{" "}
@@ -226,11 +226,11 @@ const Dashboard = (props) => {
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col span={24}>
           <Card title="Top Selling Medicines">
-            {topSelling.length === 0 ? (
+            {topSelling?.length === 0 ? (
               <Empty description="No sales data" />
             ) : (
               <Row gutter={[16, 16]}>
-                {topSelling.map((item) => (
+                {topSelling?.map((item) => (
                   <Col xs={24} sm={12} md={8} lg={6} key={item.Med_Name}>
                     <Card hoverable>
                       <img
@@ -244,7 +244,7 @@ const Dashboard = (props) => {
                           fill: appTheme?.token?.colorPrimary,
                         }}
                       />
-                      <Statistic title={item.Med_Name} value={item.totalSold}  
+                      <Statistic title={item?.Med_Name} value={item?.totalSold}  
               valueStyle={{ color: appTheme?.token?.colorPrimary }}
                       
                       />
@@ -266,7 +266,7 @@ const Dashboard = (props) => {
         width={350}
       >
         <Tabs defaultActiveKey="out">
-          <Tabs.TabPane tab={`Out of Stock (${outOfStock.length})`} key="out">
+          <Tabs.TabPane tab={`Out of Stock (${outOfStock?.length})`} key="out">
             <List
               dataSource={outOfStock}
               renderItem={(item) => (
@@ -279,7 +279,7 @@ const Dashboard = (props) => {
             />
           </Tabs.TabPane>
 
-          <Tabs.TabPane tab={`Low Stock (${lowStock.length})`} key="low">
+          <Tabs.TabPane tab={`Low Stock (${lowStock?.length})`} key="low">
             <List
               dataSource={lowStock}
               renderItem={(item) => (

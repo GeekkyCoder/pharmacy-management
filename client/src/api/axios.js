@@ -4,7 +4,7 @@ const getToken = () => localStorage.getItem('token');
 
 const axiosInstance = axios.create({
   // baseURL: 'http://localhost:8000',
-  baseUrl:"https://rashid-pharmacy-management.onrender.com",
+  baseURL:"https://rashid-pharmacy-management.onrender.com",
   headers: {
     'Content-Type': 'application/json',
   },
