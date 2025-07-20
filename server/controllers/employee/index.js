@@ -75,12 +75,16 @@ const employeeLogin = asyncWrapper(async (req, res, next) => {
     expiresIn: "3d",
   });
 
-  // Set token in cookies
+  // Cookie configuration for cross-domain production setup
+  const isProduction = process.env.NODE_ENV === "production";
+  
   res.cookie("token", token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 24 * 60 * 60 * 1000, // 1 day
-    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax',
+    httpOnly: true, // Prevents XSS attacks
+    secure: isProduction, // HTTPS only in production
+    sameSite: isProduction ? 'None' : 'Lax', // 'None' required for cross-domain in production
+    maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days (matches JWT expiry)
+    domain: isProduction ? undefined : undefined, // Let browser handle domain
+    path: '/', // Available on all paths
   });
 
 

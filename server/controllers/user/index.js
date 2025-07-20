@@ -79,12 +79,16 @@ const userLogin = asyncWrapper(async (req, res, next) => {
       expiresIn: "7d",
     });
 
-    // Set token in cookies
+    // Cookie configuration for cross-domain production setup
+    const isProduction = process.env.NODE_ENV === "production";
+    
     res.cookie("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
-      sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax',
+      httpOnly: true, // Prevents XSS attacks
+      secure: isProduction, // HTTPS only in production
+      sameSite: isProduction ? 'None' : 'Lax', // 'None' required for cross-domain in production
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (matches JWT expiry)
+      domain: isProduction ? undefined : undefined, // Let browser handle domain
+      path: '/', // Available on all paths
     });
 
     const user = {
@@ -104,7 +108,43 @@ const userLogin = asyncWrapper(async (req, res, next) => {
 
 });
 
+const userLogout = asyncWrapper(async (req, res) => {
+  // Clear the authentication cookie
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'None' : 'Lax',
+    path: '/',
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: "Logged out successfully"
+  });
+});
+
+const testCookieAuth = asyncWrapper(async (req, res) => {
+  // This endpoint tests if cookie authentication works
+  return res.status(200).json({
+    success: true,
+    message: "Cookie authentication working!",
+    user: {
+      id: req.user._id,
+      userName: req.user.userName,
+      role: req.user.role
+    },
+    cookies: {
+      tokenExists: !!req.cookies.token,
+      cookieCount: Object.keys(req.cookies).length
+    }
+  });
+});
+
 module.exports = {
   signUpUser,
   userLogin,
+  userLogout,
+  testCookieAuth,
 };

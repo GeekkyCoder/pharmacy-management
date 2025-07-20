@@ -18,50 +18,83 @@ const dashboardRouter = require("./routes/dashboard");
 const EmployeeRouter = require("./routes/employee");
 const DiscountRouter = require("./routes/discount");
 const PharmacyInfoRouter = require("./routes/pharmacy-info");
-const { triggerDailyReportsNow, initializeCronJobs } = require("./services/cronJobs");
+// const { triggerDailyReportsNow, initializeCronJobs } = require("./services/cronJobs");
 
 
 const app = express();
 
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 
+// Environment-based configuration
+const isProduction = process.env.NODE_ENV === 'production';
 
+// Allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:5173', 
+  'http://localhost:3000',
+  process.env.FRONTEND_URL, 
+].filter(Boolean);
 
-app.use(morgan("short"));
-app.use(helmet());
-// app.use(mongooseSanitize());
+app.use(morgan(isProduction ? "combined" : "short"));
+
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS configuration for cross-domain requests
 app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie', 'X-Requested-With'],
+  exposedHeaders: ['Set-Cookie'],
+  optionsSuccessStatus: 200,
 }))
 
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase payload limit
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-  app.get("/hello", (req,res,next) => {
-     return next(createCustomError("oops", 404))
-      // return res.status(200).json("Hello World")
-  })
+// Trust proxy for production (important for Render)
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
 
-  // Test route to manually trigger daily reports (for testing)
-  app.get("/test-daily-reports", async (req, res) => {
-    try {
-      const { triggerDailyReportsNow } = require("./services/cronJobs");
-      await triggerDailyReportsNow();
-      res.status(200).json({ 
-        success: true, 
-        message: "Daily reports triggered successfully. Check console for details." 
-      });
-    } catch (error) {
-      res.status(500).json({ 
-        success: false, 
-        message: "Error triggering daily reports", 
-        error: error.message 
-      });
-    }
-  })
+// Health check endpoint for Render
+app.get("/health", (req, res) => {
+  res.status(200).json({ 
+    status: "OK", 
+    message: "Server is running",
+    environment: process.env.NODE_ENV || 'development',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get("/test-cookies", (req, res) => {
+  res.status(200).json({
+    message: "Cookie test endpoint",
+    cookies: req.cookies,
+    hasCookieParser: !!req.cookies,
+    tokenExists: !!req.cookies.token,
+    environment: process.env.NODE_ENV || 'development',
+    userAgent: req.get('User-Agent'),
+    origin: req.get('Origin'),
+  });
+});
+
+app.get("/hello", (req,res,next) => {
+   return next(createCustomError("oops", 404))
+    // return res.status(200).json("Hello World")
+})
 
 
  app.use("/user", UserRouter) 
