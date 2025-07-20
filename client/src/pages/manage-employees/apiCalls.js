@@ -1,47 +1,85 @@
 import axios from "../../api/axios";
 
-const getAllEmployees = async (adminId, onSuccess, onFailure) => {
+const getAllEmployees = async (onSuccess, onFailure) => {
   try {
-    const response = await axios.get(`employee/getEmployees/${adminId}`);
-    const {
-      data: { data },
-      request,
-    } = response;
+    const response = await axios.get(`employee/getEmployees`);
 
-    if (request.status !== 200) {
-      throw new Error(request.statusText);
+    // Check if response is successful
+    if (response.status === 200) {
+      const employees = response.data?.data;
+      
+      if (employees && Array.isArray(employees)) {
+        onSuccess(employees);
+        return {
+          success: true,
+          data: employees,
+          message: "Employees fetched successfully"
+        };
+      } else {
+        const errorMsg = "No employees data received";
+        onFailure(errorMsg);
+        return {
+          success: false,
+          message: errorMsg
+        };
+      }
+    } else {
+      const errorMsg = response.data?.message || "Failed to fetch employees";
+      onFailure(errorMsg);
+      return {
+        success: false,
+        message: errorMsg
+      };
     }
-
-    if (data && Array.isArray(data)) {
-      onSuccess(data);
-    }
-
-    return true;
   } catch (err) {
-    console.log(`err`, err);
-    onFailure(err?.message);
-    return false;
+    let errorMessage = err?.response?.data?.message || err.message
+    onFailure(errorMessage);
+    return {
+      success: false,
+      message: errorMessage
+    };
   }
 };
 
-const deleteEmployee = async (employeeId,onSuccess,onFailure) => {
+const deleteEmployee = async (employeeId, onSuccess, onFailure) => {
   try {
-    const response = await axios.delete(
-      `employee/deleteEmployee/${employeeId}`
-    );
-
-    if (response.status !== 200) {
-      throw new Error(response.statusText);
+    // Validate input
+    if (!employeeId) {
+      const errorMsg = "Employee ID is required";
+      onFailure(errorMsg);
+      return {
+        success: false,
+        message: errorMsg
+      };
     }
 
-    const { message } = response?.data;
+    const response = await axios.delete(`employee/deleteEmployee/${employeeId}`);
 
-    onSuccess(message);
-    return true
-  } catch (err) {
-    onFailure(err?.message);
-    return false
+    // Check if response is successful
+    if (response.status === 200) {
+      const message = response.data?.message || "Employee deleted successfully";
+      onSuccess(message);
+      return {
+        success: true,
+        message: message
+      };
+    } else {
+      const errorMsg = response.data?.message || "Failed to delete employee";
+      onFailure(errorMsg);
+      return {
+        success: false,
+        message: errorMsg
+      };
+    }
+  } catch (err) {    
+    let errorMessage = err?.response?.data?.message || err.message;
+    
+    onFailure(errorMessage);
+    return {
+      success: false,
+      message: errorMessage
+    };
   }
 };
 
-export { getAllEmployees,deleteEmployee };
+export { getAllEmployees, deleteEmployee };

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Formik, Form, Field } from "formik";
 import { Button, DatePicker, Typography, Table } from "antd";
+import { DownloadOutlined } from "@ant-design/icons";
 import * as Yup from "yup";
 import moment from "moment";
+import * as XLSX from "xlsx";
 import WithMessage from "../../hocs/messages";
 import { salesReport } from "./apiCalls";
 
@@ -58,9 +60,67 @@ function Index(props) {
     await salesReport(payload, onSuccess, onFailure);
   };
 
+  const exportToExcel = () => {
+    if (!tableData.data || tableData.data.length === 0) {
+      props.error("No data available to export");
+      return;
+    }
+
+    // Prepare main sales data
+    const salesData = tableData.data.map((record, index) => ({
+      "S.No": index + 1,
+      "Customer ID": record.C_ID || "N/A",
+      "Customer Name": record.C_Name || "N/A",
+      "Total Amount (PKR)": record.Total_Price || 0,
+      "Sale Performed By": record.employeeId ? `${record.employeeId.userName} (${record.employeeId.role})` : "N/A",
+      "Sale Date": moment(record.createdAt).format("YYYY-MM-DD HH:mm:ss"),
+      "Number of Items": record.NO_Of_Items || 0,
+    }));
+
+    // Prepare detailed medicines data
+    const medicinesData = [];
+    tableData.data.forEach((record) => {
+      if (record.medicines && record.medicines.length > 0) {
+        record.medicines.forEach((med) => {
+          medicinesData.push({
+            "Customer ID": record.C_ID || "N/A",
+            "Customer Name": record.C_Name || "N/A",
+            "Medicine Name": med.Med_ID?.Med_Name || "N/A",
+            "Medicine Price (PKR)": med.Med_ID?.Med_Price || 0,
+            "Quantity Sold": med.Sale_Qty || 0,
+            "Total Value (PKR)": (med.Med_ID?.Med_Price || 0) * (med.Sale_Qty || 0),
+            "Purchase Date": med.Med_ID?.Purchase_Date ? moment(med.Med_ID.Purchase_Date).format("YYYY-MM-DD") : "N/A",
+            "Sale Date": moment(record.createdAt).format("YYYY-MM-DD HH:mm:ss"),
+          });
+        });
+      }
+    });
+
+    // Create workbook with multiple sheets
+    const wb = XLSX.utils.book_new();
+    
+    // Add sales summary sheet
+    const ws1 = XLSX.utils.json_to_sheet(salesData);
+    XLSX.utils.book_append_sheet(wb, ws1, "Sales Summary");
+    
+    // Add detailed medicines sheet
+    if (medicinesData.length > 0) {
+      const ws2 = XLSX.utils.json_to_sheet(medicinesData);
+      XLSX.utils.book_append_sheet(wb, ws2, "Medicine Details");
+    }
+
+    // Generate filename with date range
+    const startDate = salesData.length > 0 ? moment(tableData.data[tableData.data.length - 1].createdAt).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD");
+    const endDate = salesData.length > 0 ? moment(tableData.data[0].createdAt).format("YYYY-MM-DD") : moment().format("YYYY-MM-DD");
+    const filename = `Sales_Report_${startDate}_to_${endDate}.xlsx`;
+
+    // Download file
+    XLSX.writeFile(wb, filename);
+    props.success(`Excel file downloaded: ${filename}`);
+  };
+
   const onSuccess = (options) => {
-    console.log("options", options);
-    props.success(options.message);
+    // props.success(options.message);
     const data = options.data;
     setTableData({
       loading: false,
@@ -101,6 +161,12 @@ function Index(props) {
       title: "Total Amount",
       dataIndex: "Total_Price",
       key: "Total_Price",
+    },
+    {
+      title: "Sale Performed By",
+      dataIndex: "employeeId",
+      key: "employeeId",
+      render: (emp) => (emp ? `${emp.userName} (${emp?.role})` : "N/A"),
     },
     {
       title: "Date",
@@ -153,7 +219,18 @@ function Index(props) {
 
   return (
     <div>
-      <Title level={3}>Sales Reports</Title>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <Title level={3}>Sales Reports</Title>
+        <Button
+          type="primary"
+          icon={<DownloadOutlined />}
+          onClick={exportToExcel}
+          disabled={!tableData.data || tableData.data.length === 0 || tableData.loading}
+          size="middle"
+        >
+          Export to Excel
+        </Button>
+      </div>
       <div style={{ maxWidth: 400, margin: "0 auto" }}>
         <Formik
           initialValues={{

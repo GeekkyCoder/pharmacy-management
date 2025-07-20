@@ -21,16 +21,17 @@ import WithMessages from "../../hocs/messages";
 const { Title } = Typography;
 const { Option } = Select;
 
+
 const UpdateEmployee = (props) => {
   const { employeeId } = useParams();
   const navigate = useNavigate();
   const [initialValues, setInitialValues] = useState(null);
 
   const validationSchema = Yup.object({
-    E_Fname: Yup.string().required("First name is required"),
-    E_Lname: Yup.string().required("Last name is required"),
-    E_Sex: Yup.string().required("Sex is required"),
-    E_Phno: Yup.string().required("Phone is required"),
+    firstName: Yup.string().required("First name is required"),
+    lastName: Yup.string().required("Last name is required"),
+    email: Yup.string().email("Invalid email format").required("Email is required"),
+    role: Yup.string().nullable(),
     // E_date: Yup.date().required("Join date is required"),
   });
 
@@ -41,26 +42,39 @@ const UpdateEmployee = (props) => {
 
   const fetchEmployeeDetails = async () => {
     props.setLoading(true);
+    try{
     const response = await getEmployeeById(employeeId);
     if (response) {
       const emp = response;
+      console.log("emp", emp);
+      const firstName = emp?.userName.split(" ")[0] || "";
+      const lastName = emp?.userName.split(" ")[1] || "";
       setInitialValues({
-        E_Fname: emp.E_Fname || "",
-        E_Lname: emp.E_Lname || "",
-        E_Sex: emp.E_Sex || "",
-        E_Phno: emp.E_Phno || "",
-        E_Jdate: emp.E_Jdate ? moment(emp.E_Jdate) : null,
+        firstName: firstName || "",
+        lastName: lastName || "",
+        email: emp?.email || "",
+        role: emp?.role || "",
       });
-    } else {
-      props.error("Failed to load employee details.");
     }
-    props.setLoading(false);
+    } catch(err) {
+
+    }finally {
+      props.setLoading(false);
+    }
+
+   
   };
 
   const submitUpdateEmployee = async (body) => {
     props.setLoading(true);
 
-    const response = await updateEmployee(employeeId, body, onFailure);
+    const payload  = {
+      userName: `${body?.firstName} ${body?.lastName}`,
+      email: body?.email,
+      role: body?.role,
+    }
+
+    const response = await updateEmployee(employeeId, payload, onFailure);
 
     if (response) {
       navigate(-1);
@@ -137,14 +151,14 @@ const UpdateEmployee = (props) => {
                   <Form.Item
                     label="First Name"
                     validateStatus={
-                      touched.E_Fname && errors.E_Fname ? "error" : ""
+                      touched.firstName && errors.firstName ? "error" : ""
                     }
-                    help={touched.E_Fname && errors.E_Fname}
+                    help={touched.firstName && errors.firstName}
                     {...formItemLayout}
                   >
                     <Input
-                      name="E_Fname"
-                      value={values.E_Fname}
+                      name="firstName"
+                      value={values.firstName}
                       onChange={handleChange}
                       onBlur={handleBlur}
                     />
@@ -155,14 +169,14 @@ const UpdateEmployee = (props) => {
                   <Form.Item
                     label="Last Name"
                     validateStatus={
-                      touched.E_Lname && errors.E_Lname ? "error" : ""
+                      touched.lastName && errors.lastName ? "error" : ""
                     }
-                    help={touched.E_Lname && errors.E_Lname}
+                    help={touched.lastName && errors.lastName}
                     {...formItemLayout}
                   >
                     <Input
-                      name="E_Lname"
-                      value={values.E_Lname}
+                      name="lastName"
+                      value={values.lastName}
                       onChange={handleChange}
                       onBlur={handleBlur}
                     />
@@ -171,60 +185,42 @@ const UpdateEmployee = (props) => {
 
                 <Col span={12}>
                   <Form.Item
-                    label="Sex"
+                    label="Email"
                     validateStatus={
-                      touched.E_Sex && errors.E_Sex ? "error" : ""
+                      touched.email && errors.email ? "error" : ""
                     }
-                    help={touched.E_Sex && errors.E_Sex}
+                    help={touched.email && errors.email}
+                    {...formItemLayout}
+                  >
+                    <Input
+                      name="email"
+                      value={values.email}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col span={12}>
+                  <Form.Item
+                    label="Role"
+                    validateStatus={
+                      touched.role && errors.role ? "error" : ""
+                    }
+                    help={touched.role && errors.role}
                     {...formItemLayout}
                   >
                     <Select
-                      name="E_Sex"
-                      value={values.E_Sex}
-                      onChange={(value) => setFieldValue("E_Sex", value)}
+                      name="role"
+                      value={values.role}
+                      onChange={(value) => setFieldValue("role", value)}
                       onBlur={handleBlur}
                     >
-                      <Option value="Male">Male</Option>
-                      <Option value="Female">Female</Option>
-                      <Option value="Other">Other</Option>
+                      <Option value="employee">Employee</Option>
+                      <Option value="admin">Admin</Option>
                     </Select>
                   </Form.Item>
                 </Col>
-
-                <Col span={12}>
-                  <Form.Item
-                    label="Phone"
-                    validateStatus={
-                      touched.E_Phno && errors.E_Phno ? "error" : ""
-                    }
-                    help={touched.E_Phno && errors.E_Phno}
-                    {...formItemLayout}
-                  >
-                    <Input
-                      name="E_Phno"
-                      value={values.E_Phno}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </Form.Item>
-                </Col>
-
-                {/* <Col span={12}>
-                  <Form.Item
-                    label="Join Date"
-                    validateStatus={
-                      touched.E_date && errors.E_date ? "error" : ""
-                    }
-                    help={touched.E_date && errors.E_date}
-                    {...formItemLayout}
-                  >
-                    <DatePicker
-                      style={{ width: "100%" }}
-                      value={values.E_date ? moment(values.E_date) : null}
-                      onChange={(date) => setFieldValue("E_Jdate", date)}
-                    />
-                  </Form.Item>
-                </Col> */}
               </Row>
 
               <div style={{ textAlign: "center" }}>

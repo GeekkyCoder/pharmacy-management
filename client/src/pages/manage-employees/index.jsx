@@ -2,14 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Table, Button, Popconfirm, Typography } from "antd";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
-import { useSelector } from "react-redux";
 import { deleteEmployee, getAllEmployees } from "./apiCalls";
 import { useNavigate } from "react-router-dom";
 
 const { Title } = Typography;
 
 const ManageEmployees = (props) => {
-  const user = useSelector((state) => state.auth.user);
   const navigate = useNavigate();
 
   const [dataSource, setDataSource] = useState([]);
@@ -31,7 +29,7 @@ const ManageEmployees = (props) => {
 
     if (response) {
       props.setLoading(true);
-      await getAllEmployees(user?._id, onSuccess, onFailure);
+      await getAllEmployees(onSuccess, onFailure);
       props.setLoading(false);
     }
   };
@@ -54,10 +52,9 @@ const ManageEmployees = (props) => {
   };
 
   const columns = [
-    { title: "First Name", dataIndex: "E_Fname" },
-    { title: "Last Name", dataIndex: "E_Lname" },
-    { title: "Phone Number", dataIndex: "E_Phno" },
-    ,
+    { title: "Employee", dataIndex: "userName" },
+    { title: "Email", dataIndex: "email" },
+    { title: "Role", dataIndex: "role" },
     {
       title: "Actions",
       render: (_, record) => (
@@ -88,7 +85,7 @@ const ManageEmployees = (props) => {
   useEffect(() => {
     (async () => {
       props.setLoading(true);
-      await getAllEmployees(user?._id, onSuccess, onFailure);
+      await getAllEmployees(onSuccess, onFailure);
       props.setLoading(false);
     })();
   }, []);
@@ -97,11 +94,11 @@ const ManageEmployees = (props) => {
     <div style={{ padding: "30px 50px" }}>
       <div
         style={{
-          background: "#f1f1f1",
+          // background: "#f1f1f1",
           padding: "30px 40px",
           borderRadius: "8px",
-          maxWidth: 1000,
-          margin: "0 auto",
+          // maxWidth: 1000,
+          // margin: "0 auto",
         }}
       >
         <Title

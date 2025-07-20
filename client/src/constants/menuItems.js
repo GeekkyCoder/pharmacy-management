@@ -18,7 +18,7 @@ const menuItems = [
       label: 'Suppliers',
       roles: ['admin','employee'],
       children: [
-        { key: 'addSupplier', label: 'Add Supplier', path: '/add-supplier', roles: ['admin','employee'] },
+        { key: 'addSupplier', label: 'Add Supplier', path: '/add-supplier', roles: ['employee'] },
         { key: 'viewSupplier', label: 'View Supplier', path: '/view-supplier', roles: ['admin','employee'] },
       ]
     },
@@ -29,6 +29,7 @@ const menuItems = [
       children: [
         { key: 'addEmployee', label: 'Add Employee', path: '/add-employee', roles: ['admin'] },
         { key: 'manageEmployees', label: 'Manage Employees', path: '/manage-employees', roles: ['admin'] },
+        { key: 'signupAdmin', label: 'Create Admin Account', path: '/signup-admin', roles: ['admin'] },
       ]
     },
     {
@@ -57,6 +58,12 @@ const menuItems = [
         { key: 'salesReport', label: 'Sales Report', path: '/sales-report', roles: ['admin'] },
         // { key: 'stockReport', label: 'Stock Report', path: '/stock-report', roles: ['admin'] },
       ]
+    },
+    {
+      key: 'settings',
+      label: 'Settings',
+      path: '/settings',
+      roles: ['admin'],
     }
   ];
   

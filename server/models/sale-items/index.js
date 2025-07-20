@@ -12,6 +12,11 @@ const salesItemSchema = new mongoose.Schema({
   employeeId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee" },
   Total_Price: { type: Number },    
   NO_Of_Items: {type:Number},
+  admin: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User", 
+    required: true 
+  },
 },{timestamps:true});
 
 module.exports = mongoose.model("SalesItem", salesItemSchema);

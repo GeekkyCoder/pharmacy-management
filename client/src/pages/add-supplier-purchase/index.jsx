@@ -339,7 +339,7 @@
 
 
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Formik, Form } from "formik";
 import * as Yup from "yup";
 import {
@@ -353,12 +353,20 @@ import {
   Steps,
   Divider,
   Typography,
+  Table,
+  Space,
+  Statistic,
+  Tag,
+  Alert,
+  Tooltip,
 } from "antd";
+import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useSelector } from "react-redux";
-import { createPurchase } from "./apiCalls";
+import { createPurchase, calculatePurchaseDiscount, getAllMedicines } from "./apiCalls";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
+import "./supplier-purchase.css";
 
 const { Title } = Typography;
 const { Step } = Steps;
@@ -366,6 +374,9 @@ const { Step } = Steps;
 const SupplierPurchaseMultiStep = (props) => {
   const user = useSelector((state) => state?.auth?.user);
   const [current, setCurrent] = useState(0);
+  const [discountData, setDiscountData] = useState(null);
+  const [availableMedicines, setAvailableMedicines] = useState([]);
+  const [isCalculatingDiscount, setIsCalculatingDiscount] = useState(false);
 
   const initialValues = {
     Sup_Name: "",
@@ -406,21 +417,92 @@ const SupplierPurchaseMultiStep = (props) => {
         })
       ),
     }),
+    Yup.object().shape({
+      // Checkout validation - just ensure purchases exist
+      purchases: Yup.array().min(1, "At least one purchase is required"),
+    }),
   ];
+
+  // Load available medicines on component mount
+  useEffect(() => {
+    const loadMedicines = async () => {
+      await getAllMedicines(
+        (medicines) => setAvailableMedicines(medicines),
+        (error) => props.error(error)
+      );
+    };
+    loadMedicines();
+  }, []);
+
+  // Calculate discount when moving to checkout step
+  const calculateDiscount = async (purchases) => {
+    setIsCalculatingDiscount(true);
+    
+    // Transform purchases to the format expected by the discount API
+    const items = purchases.map(purchase => {
+      // Find matching medicine ID from available medicines
+      const medicine = availableMedicines.find(m => 
+        m.Med_Name.toLowerCase() === purchase.P_Name.toLowerCase()
+      );
+      
+      return {
+        medicineId: medicine?._id || purchase.P_Name, // fallback to name if not found
+        quantity: purchase.P_Qty || 1
+      };
+    });
+
+    await calculatePurchaseDiscount(
+      items,
+      (data) => {
+        setDiscountData(data);
+        setIsCalculatingDiscount(false);
+      },
+      (error) => {
+        props.error(error);
+        setIsCalculatingDiscount(false);
+        // Set basic calculation without discounts
+        const basicData = {
+          items: purchases.map(purchase => ({
+            medicine: {
+              name: purchase.P_Name,
+              price: purchase.P_Cost
+            },
+            quantity: purchase.P_Qty,
+            originalAmount: purchase.P_Cost * purchase.P_Qty,
+            discountApplied: null,
+            finalAmount: purchase.P_Cost * purchase.P_Qty
+          })),
+          summary: {
+            totalOriginalAmount: purchases.reduce((sum, p) => sum + (p.P_Cost * p.P_Qty), 0),
+            totalDiscountAmount: 0,
+            totalFinalAmount: purchases.reduce((sum, p) => sum + (p.P_Cost * p.P_Qty), 0),
+            totalSavings: 0
+          }
+        };
+        setDiscountData(basicData);
+      }
+    );
+  };
 
   const handleSubmit = async (values, resetForm) => {
     props.setLoading(true);
     const body = {
       ...values,
       purchaseMadeBy: user?._id,
+      // Include discount information if available
+      discountInfo: discountData?.summary || null
     };
     const response = await createPurchase(body, onSuccess, onFailure);
-    if (response) resetForm();
+    if (response) {
+      resetForm();
+      setCurrent(0);
+      setDiscountData(null);
+    }
     props.setLoading(false);
   };
 
   const onSuccess = (options) => props.success(options?.message);
-  const onFailure = (options) => props.error(options?.message); // Fixed: Changed success to error
+  const onFailure = (message) => props.error(message);
 
   const steps = [
     {
@@ -455,7 +537,27 @@ const SupplierPurchaseMultiStep = (props) => {
       content: ({ values, setFieldValue, errors, touched }) => (
         <>
           {values.purchases.map((purchase, index) => (
-            <Card key={index} style={{ marginBottom: 16 }}>
+            <Card 
+              key={index} 
+              className="medicine-card" 
+              style={{ marginBottom: 16 }}
+              title={`Medicine #${index + 1}`}
+              extra={
+                values.purchases.length > 1 && (
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => {
+                      const newPurchases = values.purchases.filter((_, i) => i !== index);
+                      setFieldValue('purchases', newPurchases);
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )
+              }
+            >
               <Row gutter={16}>
                 <Col span={8}>
                   <label>Medicine Name</label>
@@ -486,7 +588,7 @@ const SupplierPurchaseMultiStep = (props) => {
                     )}
                 </Col>
                 <Col span={4}>
-                  <label>Cost</label>
+                  <label>Cost (per unit)</label>
                   <InputNumber
                     min={0}
                     style={{ width: "100%" }}
@@ -541,9 +643,34 @@ const SupplierPurchaseMultiStep = (props) => {
                       <div className="error">{errors.purchases[index].Exp_Date}</div>
                     )}
                 </Col>
+                <Col span={8}>
+                  <div style={{ marginTop: 16 }}>
+                    <strong>Total: PKR {((purchase.P_Qty || 0) * (purchase.P_Cost || 0)).toFixed(2)}</strong>
+                  </div>
+                </Col>
               </Row>
             </Card>
           ))}
+          
+          <Button
+            type="dashed"
+            block
+            icon={<PlusOutlined />}
+            onClick={() => {
+              const newPurchase = {
+                P_Name: "",
+                P_Qty: 1,
+                P_Cost: 0,
+                Mfg_Date: dayjs(),
+                Exp_Date: dayjs(),
+                Pur_Date: dayjs(),
+              };
+              setFieldValue('purchases', [...values.purchases, newPurchase]);
+            }}
+            style={{ marginTop: 16 }}
+          >
+            Add Another Medicine
+          </Button>
         </>
       ),
     },
@@ -576,17 +703,34 @@ const SupplierPurchaseMultiStep = (props) => {
             <div>{steps[current].content({ values, setFieldValue, errors, touched })}</div>
 
             <Divider />
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
+            <div className="step-navigation" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               {current > 0 && (
                 <Button onClick={() => setCurrent(current - 1)}>Back</Button>
               )}
+              
+              {current === 2 && discountData && (
+                <Button
+                  onClick={() => calculateDiscount(values.purchases)}
+                  loading={isCalculatingDiscount}
+                  style={{ marginLeft: 'auto', marginRight: 8 }}
+                >
+                  Recalculate Discounts
+                </Button>
+              )}
+              
               {current < steps.length - 1 ? (
                 <Button
                   type="primary"
                   onClick={() => {
                     validateForm().then((errs) => {
                       if (Object.keys(errs).length === 0) {
-                        setCurrent(current + 1);
+                        const nextStep = current + 1;
+                        setCurrent(nextStep);
+                        
+                        // If moving to checkout step, calculate discounts
+                        if (nextStep === 2) {
+                          calculateDiscount(values.purchases);
+                        }
                       } else {
                         const touchedFields = {};
                         Object.keys(errs).forEach((field) => {
@@ -608,8 +752,12 @@ const SupplierPurchaseMultiStep = (props) => {
                   Next
                 </Button>
               ) : (
-                <Button type="primary" htmlType="submit" loading={props.loading}>
-                  Submit
+                <Button 
+                  type="primary" 
+                  htmlType="submit" 
+                  loading={props.loading}
+                >
+                  Submit Purchase
                 </Button>
               )}
             </div>

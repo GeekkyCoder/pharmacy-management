@@ -1,96 +1,144 @@
-const { createCustomError } = require("../../errors");
 const asyncWrapper = require("../../middlewares/async-wrapper");
 const Employee = require("../../models/employee");
+const bycrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-const EmployeeLogin = asyncWrapper(async (req, res, next) => {
-  const { E_Username, E_Password } = req.body;
 
-  if (!E_Username || !E_Password) {
-    return next(createCustomError("Invalid Credentials", 401));
+
+const signupEmployee = asyncWrapper(async (req, res) => {
+
+  const user = req.user;
+
+  const payload = req.body;
+
+  if (!payload?.userName || !payload?.password || !payload?.email) {
+    return res.status(404).json({ message: "Employee information needed" });
   }
 
-  const empFound = await Employee.findOne({ E_Username });
+  const employeeDup = await Employee.findOne({ email: payload?.email });
 
-  if (!empFound) {
-    return next(createCustomError("employee does not exist", 404));
+  if (employeeDup) {
+    return res.status(404).json({ message: "Duplicate Information" });
   }
 
-  if (E_Password !== empFound?.E_Password) {
-    return next(createCustomError("Password does not match"));
+  const { userName, password, email } = payload;
+
+  //hash password to store hashed password
+  const hashedPassword = await bycrypt.hash(password, 10);
+
+  const newEmployee = new Employee({
+    userName,
+    password: hashedPassword,
+    email,
+    admin: user._id
+  });
+
+  await newEmployee.save();
+
+  return res
+    .status(200)
+    .json({
+      employee: newEmployee,
+      msg: "Employee Created Successfully",
+    });
+});
+
+
+const employeeLogin = asyncWrapper(async (req, res, next) => {
+  const payload = req.body;
+
+  if (!payload?.userEmail || !payload?.userPassword) {
+    return res.status(404).json({ message: "Email and password are required" });
+  }
+
+  const employee = await Employee.findOne({ email: payload.userEmail });
+
+  if (!employee) {
+    return res.status(404).json({ message: "user is not a employee or does not exist" });
+  }
+
+  const isMatch = await bycrypt.compare(payload.userPassword, employee.password);
+
+  if (!isMatch) {
+    return res.status(404).json({ message: "Wrong Password" });
   }
 
   const user = {
-    _id:empFound?._id,
-    userName: empFound?.E_Username,
-    role: "employee",
+    _id: employee?._id,
+    userName: employee.userName,
+    userEmail: employee.email,
+    role: employee.role,
+    admin: employee.admin
   };
 
-  return res.status(200).json({user:user,token: "1241421414",});
-});
+  const token = await jwt.sign({ user: user }, process.env.JWT_SECRET, {
+    expiresIn: "3d",
+  });
 
-// Create a new employee
-const createEmployee = asyncWrapper(async (req, res, next) => {
-  const { E_Fname, E_Lname, E_Sex, E_Phno, E_date, Admin_ID } = req.body;
-
-  if (!E_Fname || !E_Lname || !E_Sex || !E_Phno || !E_date || !Admin_ID) {
-    return next(
-      createCustomError("please provide necessary informations", 404)
-    );
-  }
-
+  // Set token in cookies
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
+    sameSite: process.env.NODE_ENV === "production" ? 'None' : 'Lax',
+  });
 
 
-  const newEmployee = new Employee({...req.body,E_Username: req.body.E_Fname + req.body.E_Lname});
-  const savedEmployee = await newEmployee.save();
-  return res
-    .status(201)
-    .json({ message: "Employee created successfully", data: savedEmployee });
+
+  res.status(200).json({ user, token });
 });
 
 // Get all employees
-const getAllEmployees = asyncWrapper(async (req, res, next) => {
-  const adminId = req.params?.adminId;
-  console.log("adminId", adminId);
-  const employees = await Employee.find({ Admin_ID: adminId }).populate(
-    "Admin_ID"
-  );
+const getAllEmployees = asyncWrapper(async (req, res) => {
+
+  const user = req.user;
+
+  const employees = await Employee.find({ admin: user._id?.toString() })
+
   res.status(200).json({ data: employees });
 });
 
 // Get a single employee by ID
-const getEmployeeById = asyncWrapper(async (req, res, next) => {
-  const employee = await Employee.findById(req.params?.employeeId).populate(
-    "Admin_ID"
-  );
+const getEmployeeById = asyncWrapper(async (req, res) => {
+
+  const user = req.user;
+
+  const employee = await Employee.findOne({ _id: req.params?.employeeId, admin: user._id })
+
   if (!employee) return res.status(404).json({ error: "Employee not found" });
 
   res.status(200).json({ data: employee });
 });
 
 // Update employee
-const updateEmployee = asyncWrapper(async (req, res, next) => {
-  const updatedEmployee = await Employee.findByIdAndUpdate(
-    req.params.employeeId,
+const updateEmployee = asyncWrapper(async (req, res) => {
+  const user = req.user;
+
+  const updatedEmployee = await Employee.findOneAndUpdate(
+    { _id: req.params.employeeId, admin: user._id },
     req.body,
     { new: true }
   );
   if (!updatedEmployee) {
-    return next(createCustomError("employee not found", 404));
+    return res.status(404).json({ message: "Employee not found" });
   }
 
   res.status(201).json({ message: "Employee updated", data: updatedEmployee });
 });
 
 // Delete employee
-const deleteEmployee = asyncWrapper(async (req, res, next) => {
-  const deleted = await Employee.findByIdAndDelete(req.params?.employeeId);
-  if (!deleted) return next(createCustomError("employee notf found", 404));
+const deleteEmployee = asyncWrapper(async (req, res) => {
+
+  const user = req.user;
+
+  const deleted = await Employee.findOneAndDelete({ _id: req.params?.employeeId, admin: user._id });
+  if (!deleted) return res.status(404).json({ message: "Employee not found" });
   res.status(200).json({ message: "Employee deleted successfully" });
 });
 
 module.exports = {
-  EmployeeLogin,
-  createEmployee,
+  signupEmployee,
+  employeeLogin,
   getAllEmployees,
   getEmployeeById,
   updateEmployee,

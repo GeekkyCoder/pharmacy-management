@@ -31,10 +31,6 @@ const ViewSupplierPurchases = (props) => {
     totalRecords: 0,
   });
 
-  //   const [totalRecords, setTotalRecords] = useState(0);
-
-  //   const [page, setPage] = useState(1);
-  //   const [limit, setLimit] = useState(5);
   const [search, setSearch] = useState("");
 
   const fetchPurchases = async () => {

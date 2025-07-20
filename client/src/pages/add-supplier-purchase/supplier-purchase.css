@@ -1,0 +1,90 @@
+/* Supplier Purchase Form Styles */
+.supplier-purchase-checkout {
+  .checkout-summary {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .discount-table {
+    .ant-table-thead > tr > th {
+      background-color: #fafafa;
+      font-weight: 600;
+    }
+    
+    .ant-table-tbody > tr > td {
+      vertical-align: top;
+    }
+  }
+
+  .total-statistics {
+    .ant-statistic-title {
+      color: #666;
+      font-weight: 500;
+    }
+    
+    .ant-statistic-content {
+      font-weight: bold;
+    }
+  }
+
+  .discount-calculation-card {
+    border: 2px dashed #d9d9d9;
+    background: #fafafa;
+    text-align: center;
+    padding: 40px 20px;
+    
+    h3 {
+      color: #666;
+      margin-bottom: 16px;
+    }
+    
+    p {
+      color: #999;
+      margin-bottom: 24px;
+    }
+  }
+
+  .error {
+    color: #ff4d4f;
+    font-size: 12px;
+    margin-top: 4px;
+  }
+
+  .step-navigation {
+    padding: 16px 0;
+    border-top: 1px solid #f0f0f0;
+    margin-top: 24px;
+  }
+}
+
+/* Medicine card styles */
+.medicine-card {
+  .ant-card-head {
+    background: #f5f5f5;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  
+  .ant-card-head-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .supplier-purchase-checkout {
+    .total-statistics {
+      .ant-col {
+        margin-bottom: 16px;
+      }
+    }
+    
+    .discount-table {
+      .ant-table-container {
+        overflow-x: auto;
+      }
+    }
+  }
+}

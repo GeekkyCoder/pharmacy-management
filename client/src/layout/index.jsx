@@ -75,7 +75,7 @@ const DashboardLayout = () => {
         <div style={{ fontSize: 18, fontWeight: "bold", padding: 20, color: layoutTheme?.
 headerBg
 , }}>
-          Rashid Pharmacy
+         Pharmacy Management
         </div>
         <Menu
           mode="inline"

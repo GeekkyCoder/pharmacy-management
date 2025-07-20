@@ -3,11 +3,12 @@ import axios from 'axios';
 const getToken = () => localStorage.getItem('token');
 
 const axiosInstance = axios.create({
-  // baseURL: 'http://localhost:8000',
-  baseURL:"https://rashid-pharmacy-management.onrender.com",
+  baseURL: 'http://localhost:8000',
+  // baseURL:"https://rashid-pharmacy-management.onrender.com",
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true
 });
 
 // Request Interceptor
@@ -28,9 +29,16 @@ axiosInstance.interceptors.response.use(
   (error) => {
     if (error.response) {
       if (error.response.status === 401) {
-        console.warn('Unauthorized. Logging out...');
-        localStorage.removeItem('token');
-        window.location.href = "/"
+        const jwtError = error.response.data?.message === "Not authorized - Please login..";
+        if (jwtError) {
+          // clearing localStorage and redirect to login
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = "/";
+          }, 1000);
+        }
+
       }
     }
     return Promise.reject(error);

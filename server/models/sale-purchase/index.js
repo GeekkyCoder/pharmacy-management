@@ -12,10 +12,15 @@ const PurchaseSchema = new mongoose.Schema({
 });
 
 const SupplierPurchaseSchema = new mongoose.Schema({
-  Sup_Name: { type: String, required: true },
+  Sup_Name: { type: String, required: true, index:true },
   Sup_Phno: { type: String, required: true },
   purchases: [PurchaseSchema],
-  purchaseMadeBy:{type:mongoose.Schema.Types.ObjectId, ref:"Employee"}
+  purchaseMadeBy:{type:mongoose.Schema.Types.ObjectId, ref:"Employee"},
+  admin: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "User", 
+    // required: true 
+  },
 }, {
   timestamps: true,
 });

@@ -4,18 +4,18 @@ import axios from "../../api/axios";
 
 const initialState = {
   user: JSON.parse(localStorage.getItem("user")) || null,
-  token: null,
+  token:null,
   loading: false,
   error: null,
 };
 
 export const loginUserAPI = async (credentials) => {
-  const res = await axios.post("/admin/login", credentials);
-  return res.data;
-};
-
-export const employeeUserAPI = async (credentials) => {
-  const res = await axios.post("/employee/login", credentials);
+  let res
+  if (credentials?.role?.toLowerCase() === "employee") {
+    res = await axios.post("/employee/loginEmployee", credentials);
+  } else {
+    res = await axios.post("/user/login", credentials);
+  }
   return res.data;
 };
 
@@ -26,18 +26,8 @@ export const login = createAsyncThunk(
       const data = await loginUserAPI(credentials);
       return data;
     } catch (err) {
-      return thunkAPI.rejectWithValue(err.message);
-    }
-  }
-);
-export const Employeelogin = createAsyncThunk(
-  "auth/employee/login",
-  async (credentials, thunkAPI) => {
-    try {
-      const data = await employeeUserAPI(credentials);
-      return data;
-    } catch (err) {
-      return thunkAPI.rejectWithValue(err.message);
+      const errorMessage = err.response?.data?.message || err.message || "Login failed";
+      return thunkAPI.rejectWithValue(errorMessage);
     }
   }
 );
@@ -47,8 +37,6 @@ const authSlice = createSlice({
   initialState,
   reducers: {
     logout: (state) => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
       state.user = null;
       state.token = null;
     },
@@ -60,7 +48,6 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(login.fulfilled, (state, action) => {
-        console.log("payloaddd", action.payload);
         state.loading = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
@@ -73,23 +60,6 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
-      // Employee Login
-      .addCase(Employeelogin.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(Employeelogin.fulfilled, (state, action) => {
-        console.log("Employee Payload:", action.payload);
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        localStorage.setItem("user" , JSON.stringify(action.payload.user))
-        localStorage.setItem("token", action.payload.token);
-      })
-      .addCase(Employeelogin.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
-      });
   },
 });
 
