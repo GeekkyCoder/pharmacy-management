@@ -2,16 +2,24 @@ import axios from 'axios';
 
 const getToken = () => localStorage.getItem('token');
 
+// Environment-based API URL
+const getApiUrl = () => {
+  // if (import.meta.env.MODE === 'production') {
+  //   return import.meta.env.VITE_API_URL || 'https://your-backend-domain.onrender.com';
+  // }
+  return 'https://rashid-pharmacy-management.onrender.com';
+};
+
 const axiosInstance = axios.create({
-  baseURL: 'http://localhost:8000',
-  // baseURL:"https://rashid-pharmacy-management.onrender.com",
+  baseURL: getApiUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true
+  withCredentials: true,
+  timeout: 30000 , // 30 second timeout
 });
 
-// Request Interceptor
+
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = getToken();
