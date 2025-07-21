@@ -21,6 +21,9 @@ const DiscountRouter = require("./routes/discount");
 const PharmacyInfoRouter = require("./routes/pharmacy-info");
 // const { initializeCronJobs } = require("./services/cronJobs");
 
+console.log('Starting Pharmacy Management Server...');
+console.log('Environment:', process.env.NODE_ENV || 'development');
+console.log('Database URL configured:', !!process.env.DB_CONNECT);
 
 const app = express();
 
@@ -77,14 +80,23 @@ if (isProduction) {
   app.set('trust proxy', 1);
 }
 
+// Root endpoint
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Pharmacy Management API",
+    status: "OK",
+    version: "1.0.0",
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check endpoint for Render
-app.get("/health", async (req, res) => {
+app.get("/health", (req, res) => {
   try {
     // Check database connection
-
     const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
     
-    return res.status(200).json({ 
+    res.status(200).json({ 
       status: "OK", 
       message: "Server is running",
       environment: process.env.NODE_ENV || 'development',
@@ -94,7 +106,7 @@ app.get("/health", async (req, res) => {
     });
   } catch (error) {
     console.error('Health check error:', error);
-    return res.status(500).json({
+    res.status(500).json({
       status: "ERROR",
       message: "Server health check failed",
       error: error.message,
@@ -115,12 +127,6 @@ app.get("/test-cookies", (req, res) => {
   });
 });
 
-app.get("/hello", (req,res,next) => {
-   return next(createCustomError("oops", 404))
-    // return res.status(200).json("Hello World")
-})
-
-
  app.use("/user", UserRouter) 
  app.use("/employee", EmployeeRouter); 
  app.use("/dashboard", dashboardRouter)
@@ -137,12 +143,16 @@ app.use(errorHandlerMiddleware)
 const startServer = async () => {
   try {
     await connectToMongo();
+    console.log('Database connected successfully');
     // initializeCronJobs();
     app.listen(PORT, () => {
-      console.log(`listening to port ${PORT}`);
+      console.log(`Server listening on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`Health check available at: /health`);
     });
   } catch (err) {
-    console.error(err);
+    console.error('Failed to start server:', err);
+    process.exit(1);
   }
 };
 
