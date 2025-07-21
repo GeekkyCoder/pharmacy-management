@@ -1,18 +1,41 @@
 const nodemailer = require('nodemailer');
 
-// Create transporter
+
 const createTransporter = () => {
-  // Configure your email service here
-  // For development, you can use ethereal email or your preferred email service
-  return nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false, // true for 465, false for other ports
+  
+  const config = {
+    host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT) || 587,
+    secure: false, 
     auth: {
-      user: process.env.EMAIL_USER, // your email
-      pass: process.env.EMAIL_PASS, // your app password
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
     },
+
+    tls: {
+      rejectUnauthorized: false 
+    },
+    connectionTimeout: 60000, 
+    greetingTimeout: 30000,   
+    socketTimeout: 60000,    
+  };
+
+ 
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.error('Email configuration error: EMAIL_USER and EMAIL_PASS are required');
+    throw new Error('Email credentials not configured properly');
+  }
+
+  // Log configuration (without sensitive data) for debugging
+  console.log('Email transporter config:', {
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    hasUser: !!config.auth.user,
+    hasPass: !!config.auth.pass,
   });
+
+  return nodemailer.createTransport(config);
 };
 
 // Email templates
@@ -98,10 +121,17 @@ const getVerificationEmailTemplate = (userName, email, password, verificationLin
   };
 };
 
-// Send verification email
+// Send verification email with enhanced error handling
 const sendVerificationEmail = async (to, userName, email, password, verificationLink) => {
   try {
+    console.log(`Attempting to send verification email to: ${to}`);
+    
     const transporter = createTransporter();
+    
+    // Verify transporter configuration
+    await transporter.verify();
+    console.log('Email transporter verified successfully');
+    
     const emailTemplate = getVerificationEmailTemplate(userName, email, password, verificationLink);
     
     const mailOptions = {
@@ -113,14 +143,36 @@ const sendVerificationEmail = async (to, userName, email, password, verification
     };
 
     const result = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', result.messageId);
-    return { success: true, messageId: result.messageId };
+    console.log('Email sent successfully:', {
+      messageId: result.messageId,
+      to: to,
+      accepted: result.accepted,
+      rejected: result.rejected
+    });
+    
+    return { 
+      success: true, 
+      messageId: result.messageId,
+      accepted: result.accepted,
+      rejected: result.rejected
+    };
   } catch (error) {
-    console.error('Error sending email:', error);
-    return { success: false, error: error.message };
+    console.error('Error sending verification email:', {
+      error: error.message,
+      code: error.code,
+      command: error.command,
+      to: to
+    });
+    
+    return { 
+      success: false, 
+      error: error.message,
+      code: error.code 
+    };
   }
 };
 
 module.exports = {
   sendVerificationEmail,
+  createTransporter, // Export for testing purposes
 };
