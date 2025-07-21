@@ -39,6 +39,7 @@ const App = () => {
           <Route path="/unauthorized" element={<UnAuthorized/>}/>
           <Route path="/update-password" element={<UpdatePassword/>}/>
 
+
           {/* All other routes go under protected route */}
           <Route
             path="/"
