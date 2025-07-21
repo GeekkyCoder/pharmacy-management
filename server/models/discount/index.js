@@ -79,7 +79,7 @@ discountSchema.virtual('isCurrentlyValid').get(function() {
 
 // Method to calculate discount amount
 discountSchema.methods.calculateDiscount = function(amount) {
-  if (!this.isCurrentlyValid) {
+  if (!this.isActive) {
     return 0;
   }
   

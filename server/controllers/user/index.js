@@ -3,6 +3,8 @@ const bycrypt = require('bcryptjs');
 
 const asyncWrapper = require("../../middlewares/async-wrapper");
 const User = require("../../models/user");
+const { generateVerificationToken, createVerificationLink } = require("../../utils");
+const { sendVerificationEmail } = require("../../services/emailService");
 
 
 const signUpUser = asyncWrapper(async (req, res, next) => {
@@ -10,41 +12,185 @@ const signUpUser = asyncWrapper(async (req, res, next) => {
   const payload = req.body;
 
   if (!payload?.userName || !payload?.password || !payload?.email) {
-    return res.status(404).json({ message: "User information needed" });
+    return res.status(400).json({ message: "User information needed" });
   }
   const userDup = await User.findOne({ email: payload?.email });
 
   if (userDup) {
-    return res.status(404).json({ message: "Duplicate Information" });
-  }
-
-  if (!payload?.userName || !payload?.password || !payload?.email) {
-    return res.status(404).json({ message: "User information needed" });
+    return res.status(409).json({ message: "Duplicate Information" });
   }
 
   const { userName, password, email } = payload;
 
-  // For admin signup, always assign admin role
+
   const role = "admin";
 
-  //hash password to store hashed password
+  const verificationToken = generateVerificationToken();
+  
   const hashedPassword = await bycrypt.hash(password, 10);
 
   const newUser = new User({
     userName,
     password: hashedPassword,
     email,
-    role
+    role,
+    verificationToken,
+    active: false
   });
 
   await newUser.save();
 
-  return res
-    .status(200)
-    .json({
-      user: newUser,
-      msg: "Admin Created Successfully",
+ 
+  const verificationLink = createVerificationLink(verificationToken, 'user');
+
+
+  try {
+    const emailResult = await sendVerificationEmail(
+      email,
+      userName,
+      email,
+      password,
+      verificationLink
+    );
+
+    if (!emailResult.success) {
+      console.error('Failed to send verification email:', emailResult.error);
+    }
+
+
+    return res
+      .status(201)
+      .json({
+        user: {
+          _id: newUser._id,
+          userName: newUser.userName,
+          email: newUser.email,
+          role: newUser.role,
+          active: newUser.active
+        },
+      message: "Admin Created Successfully. Verification email sent.",
+        emailSent: emailResult.success
+      });
+  } catch (error) {
+    console.error('Error in signup process:', error);
+    return res.status(500).json({ 
+      message: "User created but failed to send verification email",
+      error: error.message 
     });
+  }
+});
+
+const updatePassword = asyncWrapper(async (req, res, next) => {
+  const { token, newPassword, confirmPassword } = req.body;
+
+  if (!token || !newPassword || !confirmPassword) {
+    return res.status(400).json({ message: "Token, new password, and confirm password are required" });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ message: "Passwords do not match" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+
+  try {
+   
+    const user = await User.findOne({ verificationToken: token });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification token" });
+    }
+
+
+    const hashedPassword = await bycrypt.hash(newPassword, 10);
+
+
+    user.password = hashedPassword;
+    user.active = true;
+    user.verificationToken = null;
+    
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password updated successfully. Account activated.",
+      user: {
+        _id: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        active: user.active
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating password:', error);
+    return res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
+  }
+});
+
+const changePassword = asyncWrapper(async (req, res, next) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  const userId = req.user._id; 
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    return res.status(400).json({ message: "Old password, new password, and confirm password are required" });
+  }
+
+  if (newPassword !== confirmPassword) {
+    return res.status(400).json({ message: "New passwords do not match" });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: "Password must be at least 6 characters long" });
+  }
+
+  if (oldPassword === newPassword) {
+    return res.status(400).json({ message: "New password must be different from the current password" });
+  }
+
+  try {
+  
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    
+    const isOldPasswordCorrect = await bycrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordCorrect) {
+      return res.status(400).json({ message: "Current password is incorrect" });
+    }
+
+  
+    const hashedPassword = await bycrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password changed successfully",
+      user: {
+        _id: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+        active: user.active
+      }
+    });
+
+  } catch (error) {
+    console.error('Error changing password:', error);
+    return res.status(500).json({ 
+      message: "Internal server error", 
+      error: error.message 
+    });
+  }
 });
 
 const userLogin = asyncWrapper(async (req, res, next) => {
@@ -61,6 +207,10 @@ const userLogin = asyncWrapper(async (req, res, next) => {
       return res.status(401).json({ message: "user is not a admin or does not exist" })
     }
 
+    if (!userFound.active) {
+      return res.status(401).json({ message: "Account not activated. Please check your email for verification instructions." })
+    }
+
     const isPasswordCorrect = await bycrypt.compare(payload?.userPassword, userFound.password);
     if (!isPasswordCorrect) {
       return res.status(401).json({ message: "incorrect password" })
@@ -74,21 +224,20 @@ const userLogin = asyncWrapper(async (req, res, next) => {
       role: userFound.role,
     }
 
-    // Generate JWT token
+ 
     const token = jwt.sign({ user: userData }, process.env.JWT_SECRET, {
       expiresIn: "7d",
     });
 
-    // Cookie configuration for cross-domain production setup
     const isProduction = process.env.NODE_ENV === "production";
     
     res.cookie("token", token, {
-      httpOnly: true, // Prevents XSS attacks
-      secure: isProduction, // HTTPS only in production
-      sameSite: isProduction ? 'None' : 'Lax', // 'None' required for cross-domain in production
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (matches JWT expiry)
-      domain: isProduction ? undefined : undefined, // Let browser handle domain
-      path: '/', // Available on all paths
+      httpOnly: true, 
+      secure: isProduction, 
+      sameSite: isProduction ? 'None' : 'Lax', 
+      maxAge: 7 * 24 * 60 * 60 * 1000, 
+      domain: isProduction ? undefined : undefined, 
+      path: '/', 
     });
 
     const user = {
@@ -108,43 +257,9 @@ const userLogin = asyncWrapper(async (req, res, next) => {
 
 });
 
-const userLogout = asyncWrapper(async (req, res) => {
-  // Clear the authentication cookie
-  const isProduction = process.env.NODE_ENV === "production";
-  
-  res.clearCookie("token", {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: isProduction ? 'None' : 'Lax',
-    path: '/',
-  });
-
-  return res.status(200).json({
-    success: true,
-    message: "Logged out successfully"
-  });
-});
-
-const testCookieAuth = asyncWrapper(async (req, res) => {
-  // This endpoint tests if cookie authentication works
-  return res.status(200).json({
-    success: true,
-    message: "Cookie authentication working!",
-    user: {
-      id: req.user._id,
-      userName: req.user.userName,
-      role: req.user.role
-    },
-    cookies: {
-      tokenExists: !!req.cookies.token,
-      cookieCount: Object.keys(req.cookies).length
-    }
-  });
-});
-
 module.exports = {
   signUpUser,
   userLogin,
-  userLogout,
-  testCookieAuth,
+  updatePassword,
+  changePassword,
 };

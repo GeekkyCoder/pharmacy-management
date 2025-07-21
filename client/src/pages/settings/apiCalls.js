@@ -3,11 +3,17 @@ import moment from 'moment';
 
 // Helper function to make API calls using your axios instance
 const apiCall = (method, url, data = null) => {
-  return axiosInstance({
+  const config = {
     method,
     url,
-    data,
-  });
+  };
+  
+  // Only add data if it's not null and the method supports body
+  if (data !== null && ['post', 'put', 'patch'].includes(method.toLowerCase())) {
+    config.data = data;
+  }
+  
+  return axiosInstance(config);
 };
 
 // Discount API calls
@@ -31,7 +37,7 @@ export const discountAPI = {
   delete: (id) => apiCall('delete', `/discount/${id}`),
   
   // Toggle discount status
-  toggleStatus: (id) => apiCall('put', `/discount/toggle-status/${id}`),
+  toggleStatus: (id) => apiCall('put', `/discount/toggle-status/${id}`, undefined),
 
   // Apply discount to medicine
   applyToMedicine: (data) => apiCall('post', '/discount/apply-to-medicine', data),
@@ -61,7 +67,7 @@ export const pharmacyAPI = {
   updateContactInfo: (data) => apiCall('patch', '/pharmacy-info/contact-info', data),
   
   // Toggle pharmacy status
-  toggleStatus: () => apiCall('patch', '/pharmacy-info/toggle-status'),
+  toggleStatus: (id) => apiCall('put', `/pharmacy-info/toggle-status/${id}`),
   
   // Get public pharmacy info (no auth required)
   getPublic: (adminId) => apiCall('get', `/pharmacy-info/public/${adminId}`)

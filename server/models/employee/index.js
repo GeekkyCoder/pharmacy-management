@@ -19,7 +19,15 @@ const employeeSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  role:{type:String, default:"employee"}
+  role:{type:String, default:"employee"},
+  active: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  }
 },{ timestamps: true });
 
 module.exports = mongoose.model('Employee', employeeSchema);

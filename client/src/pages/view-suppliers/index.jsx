@@ -93,7 +93,7 @@ const ViewSupplierPurchases = (props) => {
       title: "Purchased By (Emp)",
       key: "purchaseMadeBy",
       render: (_, record) =>
-        record.purchaseMadeBy?.E_Fname || record.purchaseMadeBy?.E_Lname || "—",
+        `${record.purchaseMadeBy?.userName} (${record.purchaseMadeBy?.role})`,
     },
     {
       title: "Date",

@@ -4,8 +4,8 @@ const morgan = require("morgan");
 const helmet = require("helmet")
 const cors = require("cors")
 const cookieParser = require("cookie-parser");
-// const mongooseSanitize = require("express-mongo-sanitize")
-// const rateLimiter = require("express-rate-limit")
+const mongooseSanitize = require("express-mongo-sanitize")
+const rateLimiter = require("express-rate-limit")
 const connectToMongo = require("./db/connectToMongo");
 const errorHandlerMiddleware = require("./middlewares/error-handler");
 const { createCustomError } = require("./errors");
@@ -18,14 +18,13 @@ const dashboardRouter = require("./routes/dashboard");
 const EmployeeRouter = require("./routes/employee");
 const DiscountRouter = require("./routes/discount");
 const PharmacyInfoRouter = require("./routes/pharmacy-info");
-// const { triggerDailyReportsNow, initializeCronJobs } = require("./services/cronJobs");
+const { initializeCronJobs } = require("./services/cronJobs");
 
 
 const app = express();
 
 const PORT = process.env.PORT || 8000;
 
-// Environment-based configuration
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Allowed origins for CORS
@@ -36,6 +35,14 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 app.use(morgan(isProduction ? "combined" : "short"));
+
+app.use(mongoSanitize());
+
+app.use(rateLimiter({
+  windowMs: 2 * 60 * 1000, //2minutes
+  max: 100,
+  message: "Too many requests from this IP, please try again later."
+}));
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -113,11 +120,7 @@ app.use(errorHandlerMiddleware)
 const startServer = async () => {
   try {
     await connectToMongo();
-    
-    // Initialize cron jobs after database connection
-    // initializeCronJobs();
-    // triggerDailyReportsNow(); // Trigger daily reports immediately for testing
-
+    initializeCronJobs();
     app.listen(PORT, () => {
       console.log(`listening to port ${PORT}`);
     });

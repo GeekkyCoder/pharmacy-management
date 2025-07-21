@@ -1,5 +1,5 @@
 import { Button, Layout, Menu } from "antd";
-import { LogoutOutlined } from "@ant-design/icons";
+import { LogoutOutlined, KeyOutlined } from "@ant-design/icons";
 import { Outlet, useNavigate } from "react-router-dom";
 // import { useSelector } from 'react-redux';
 import React from "react";
@@ -21,6 +21,10 @@ const DashboardLayout = () => {
   const handleLogout = async () => {
     dispatch(logout())
     navigate("/login");
+  }
+
+  const handleChangePassword = () => {
+    navigate("/change-password");
   }
 
   const filteredMenu = menuItems
@@ -105,9 +109,37 @@ headerBg
             // padding: '0 1rem',
           }}
         >
-          <div>
-            <LogoutOutlined style={{ marginRight: 8 }} onClick={handleLogout} />
-            Logout (Logged in as {user?.userName})
+          <div style={{ fontSize: 16, fontWeight: "500" }}>
+            Logged in as {user?.userName}
+          </div>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <KeyOutlined 
+              style={{ 
+                fontSize: 16, 
+                cursor: "pointer",
+                padding: "8px",
+                borderRadius: "4px",
+                transition: "background-color 0.3s"
+              }} 
+              onClick={handleChangePassword}
+              title="Change Password"
+              onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(255,255,255,0.1)"}
+              onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+            />
+            <LogoutOutlined 
+              style={{ 
+                fontSize: 16, 
+                cursor: "pointer",
+                padding: "8px",
+                borderRadius: "4px",
+                transition: "background-color 0.3s"
+              }} 
+              onClick={handleLogout}
+              title="Logout"
+              onMouseEnter={(e) => e.target.style.backgroundColor = "rgba(255,255,255,0.1)"}
+              onMouseLeave={(e) => e.target.style.backgroundColor = "transparent"}
+            />
           </div>
         </Header>
 
