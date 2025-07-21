@@ -78,7 +78,7 @@ if (isProduction) {
 
 // Health check endpoint for Render
 app.get("/health", (req, res) => {
-  res.status(200).json({ 
+ return res.status(200).json({ 
     status: "OK", 
     message: "Server is running",
     environment: process.env.NODE_ENV || 'development',
