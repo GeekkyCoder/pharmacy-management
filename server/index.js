@@ -1,6 +1,7 @@
 const express = require("express");
 require("dotenv").config();
 const morgan = require("morgan");
+const mongoose = require('mongoose');
 const helmet = require("helmet")
 const cors = require("cors")
 const cookieParser = require("cookie-parser");
@@ -18,7 +19,7 @@ const dashboardRouter = require("./routes/dashboard");
 const EmployeeRouter = require("./routes/employee");
 const DiscountRouter = require("./routes/discount");
 const PharmacyInfoRouter = require("./routes/pharmacy-info");
-const { initializeCronJobs } = require("./services/cronJobs");
+// const { initializeCronJobs } = require("./services/cronJobs");
 
 
 const app = express();
@@ -77,13 +78,29 @@ if (isProduction) {
 }
 
 // Health check endpoint for Render
-app.get("/health", (req, res) => {
- return res.status(200).json({ 
-    status: "OK", 
-    message: "Server is running",
-    environment: process.env.NODE_ENV || 'development',
-    timestamp: new Date().toISOString()
-  });
+app.get("/health", async (req, res) => {
+  try {
+    // Check database connection
+
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    
+    return res.status(200).json({ 
+      status: "OK", 
+      message: "Server is running",
+      environment: process.env.NODE_ENV || 'development',
+      database: dbStatus,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    return res.status(500).json({
+      status: "ERROR",
+      message: "Server health check failed",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 app.get("/test-cookies", (req, res) => {
@@ -120,7 +137,7 @@ app.use(errorHandlerMiddleware)
 const startServer = async () => {
   try {
     await connectToMongo();
-    initializeCronJobs();
+    // initializeCronJobs();
     app.listen(PORT, () => {
       console.log(`listening to port ${PORT}`);
     });
