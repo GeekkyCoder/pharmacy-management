@@ -90,10 +90,10 @@ app.get("/", (req, res) => {
   });
 });
 
-// Health check endpoint for Render
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
+// // Health check endpoint for Render
+// app.get('/health', (req, res) => {
+//   res.status(200).json({ status: 'ok' });
+// });
 
 app.get("/test-cookies", (req, res) => {
   res.status(200).json({
