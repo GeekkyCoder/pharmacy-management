@@ -14,22 +14,22 @@ const pharmacyInfoSchema = new mongoose.Schema({
   address: {
     street: {
       type: String,
-      required: true,
+      // required: true,
       trim: true
     },
     city: {
       type: String,
-      required: true,
+      // required: true,
       trim: true
     },
     state: {
       type: String,
-      required: true,
+      // required: true,
       trim: true
     },
     country: {
       type: String,
-      required: true,
+      // required: true,
       trim: true,
       default: 'Pakistan'
     }
@@ -37,12 +37,12 @@ const pharmacyInfoSchema = new mongoose.Schema({
   contactInfo: {
     phone: {
       type: String,
-      required: true,
+      // required: true,
       trim: true
     },
     email: {
       type: String,
-      required: true,
+      // required: true,
       trim: true,
       lowercase: true
     },

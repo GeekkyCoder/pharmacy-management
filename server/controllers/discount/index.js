@@ -205,7 +205,15 @@ const deleteDiscount = asyncWrapper(async (req, res) => {
     console.log('hello')
 
     try {
-        const discount = await Discount.findOneAndDelete({ _id: id, admin: user?._id });
+        const discount = await Discount.findOneAndDelete({ _id: id, admin: user?._id }).populate('applicableMedicines', '_id');
+
+        //when delting, removing the discount reference from applicable medicines
+        if (discount && discount.applicableMedicines.length > 0) {
+            await Medicine.updateMany(
+                { _id: { $in: discount.applicableMedicines } },
+                { $unset: { currentDiscount: "" } }
+            );
+        }
 
         if (!discount) {
             return res.status(404).json({
@@ -250,8 +258,8 @@ const applyDiscountToMedicine = asyncWrapper(async (req, res) => {
     const applicableDiscounts = await Discount.find({
         admin: user?._id,
         isActive: true,
-        validFrom: { $lte: now },
-        validUntil: { $gte: now },
+        // validFrom: { $lte: now },
+        // validUntil: { $gte: now },
         $or: [
             { usageLimit: null },
             { $expr: { $lt: ['$usageCount', '$usageLimit'] } }
@@ -306,6 +314,8 @@ const calculateCartDiscount = asyncWrapper(async (req, res) => {
     const { items } = req.body; 
     const { user } = req;
 
+    console.log('user', user)
+
     if(user.role === "employee") {
        user._id = user.admin; 
     }
@@ -334,8 +344,8 @@ const calculateCartDiscount = asyncWrapper(async (req, res) => {
     const activeDiscounts = await Discount.find({
         admin: user?._id,
         isActive: true,
-        validFrom: { $lte: now },
-        validUntil: { $gte: now },
+        // validFrom: { $lte: now },
+        // validUntil: { $gte: now },
         $or: [
             { usageLimit: null },
             { $expr: { $lt: ['$usageCount', '$usageLimit'] } }
@@ -355,13 +365,15 @@ const calculateCartDiscount = asyncWrapper(async (req, res) => {
 
         // Find applicable discounts for this item
         const applicableDiscounts = activeDiscounts.filter(discount => {
-            return discount.applicableMedicines.includes(item.medicineId) ||
-                discount.applicableCategories.includes(medicine.Med_Category) ||
-                (discount.applicableMedicines.length === 0 && discount.applicableCategories.length === 0);
+            return discount.applicableMedicines.includes(item.medicineId)
+                // discount.applicableCategories.includes(medicine.Med_Category) ||
+                // (discount.applicableMedicines.length === 0 && discount.applicableCategories.length === 0);
         });
 
         let bestDiscount = null;
         let maxDiscountAmount = 0;
+
+        console.log("originalAmount:", originalAmount);
 
         for (const discount of applicableDiscounts) {
             const discountAmount = discount.calculateDiscount(originalAmount);
@@ -407,20 +419,37 @@ const calculateCartDiscount = asyncWrapper(async (req, res) => {
 
 // Toggle discount status
 const toggleDiscountStatus = asyncWrapper(async (req, res) => {
-
     const { id } = req.params;
     const { user } = req;
 
-    try{
- const discount = await Discount.findOne({ _id: id,admin:user?._id });
+    // Validate required parameters
+    if (!id) {
+        return res.status(400).json({
+            success: false,
+            message: 'Discount ID is required'
+        });
+    }
+
+    if (!user || !user._id) {
+        return res.status(401).json({
+            success: false,
+            message: 'User authentication required'
+        });
+    }
+
+    const discount = await Discount.findOne({ 
+        _id: id, 
+        admin: user._id 
+    });
 
     if (!discount) {
         return res.status(404).json({
             success: false,
-            message: 'Discount not found'
+            message: 'Discount not found or you do not have permission to modify it'
         });
     }
 
+    // Toggle the status
     discount.isActive = !discount.isActive;
     await discount.save();
 
@@ -429,10 +458,6 @@ const toggleDiscountStatus = asyncWrapper(async (req, res) => {
         data: discount,
         message: `Discount ${discount.isActive ? 'activated' : 'deactivated'} successfully`
     });
-    }catch(err) {
-     return res.status(500).json({message:err.message})
-    }
-   
 });
 
 module.exports = {

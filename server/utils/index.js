@@ -1,9 +1,21 @@
 const jwt = require('jsonwebtoken');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 const isTokenValid = async (token) => {
   const decodedMessage = jwt.verify(token, process.env.JWT_SECRET);
   return decodedMessage;
+};
+
+// Generate verification token
+const generateVerificationToken = () => {
+  return crypto.randomBytes(32).toString('hex');
+};
+
+// Create verification link
+const createVerificationLink = (token, userType) => {
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  return `${baseUrl}/update-password?token=${token}&type=${userType}`;
 };
 
 // Create transporter for sending emails
@@ -313,5 +325,7 @@ Pharmacy Management System`
 module.exports = {
   isTokenValid,
   sendEmail,
-  emailTemplates
+  emailTemplates,
+  generateVerificationToken,
+  createVerificationLink
 };

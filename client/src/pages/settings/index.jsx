@@ -12,7 +12,7 @@ import {
   InputNumber,
   Switch,
   Modal,
-  // message,
+  message,
   Tabs,
   Row,
   Col,
@@ -156,7 +156,7 @@ const Settings = (props) => {
   const handleDeleteDiscount = async (id) => {
     try {
       await discountAPI.delete(id);
-      message.success("Discount deleted successfully");
+      props.success("Discount deleted successfully");
       fetchDiscounts();
     } catch (error) {
       props.error("Failed to delete discount");
@@ -166,10 +166,10 @@ const Settings = (props) => {
   const handleToggleDiscountStatus = async (id) => {
     try {
       await discountAPI.toggleStatus(id);
-      message.success("Discount status updated");
+      props.success("Discount status updated");
       fetchDiscounts();
     } catch (error) {
-      props.error("Failed to update discount status");
+      props.error(error?.response?.data?.message || "Failed to update discount status");
     }
   };
 
@@ -181,10 +181,10 @@ const Settings = (props) => {
 
       if (pharmacyInfo) {
         await pharmacyAPI.update(formattedValues);
-        message.success("Pharmacy information updated successfully");
+        props.success("Pharmacy information updated successfully");
       } else {
         await pharmacyAPI.create(formattedValues);
-        message.success("Pharmacy information created successfully");
+        props.success("Pharmacy information created successfully");
       }
 
       setPharmacyModalVisible(false);

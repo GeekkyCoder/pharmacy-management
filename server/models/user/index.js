@@ -8,7 +8,15 @@ const adminSchema = new mongoose.Schema({
     // required: true,
     unique: true,
   },
-  role:{type:String,enum:["admin","employee"], default:"employee"}
+  role:{type:String, default:"admin"},
+  active: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  }
 },{ timestamps: true });
 
 module.exports = mongoose.model('Admin', adminSchema);

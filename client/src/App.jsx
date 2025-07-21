@@ -24,8 +24,9 @@ const ViewSuppliers = React.lazy(() => import("./pages/view-suppliers"));
 const ViewInvoices = React.lazy(() => import("./pages/view-invoices"));
 const ViewSales = React.lazy(() => import("./pages/view-sales"));
 const UnAuthorized = React.lazy(() => import("./pages/unauthorized"));
-const Settings = React.lazy(() => import("./pages/settings"));
 const SignupPage = React.lazy(() => import("./pages/signup"));
+const UpdatePassword = React.lazy(() => import("./pages/update-password"));
+const Settings = React.lazy(() => import("./pages/settings"));
 
 const App = () => {
   const user = useSelector((state) => state.auth.user);
@@ -35,7 +36,8 @@ const App = () => {
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
           <Route path="/auth/login" element={<LoginPage />} />
-          <Route  path="/unauthorized" element={<UnAuthorized/>}/>
+          <Route path="/unauthorized" element={<UnAuthorized/>}/>
+          <Route path="/update-password" element={<UpdatePassword/>}/>
 
           {/* All other routes go under protected route */}
           <Route
@@ -201,6 +203,14 @@ const App = () => {
             }
           />
 
+          <Route
+            path="change-password"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin","employee"]}>
+                <UpdatePassword />
+              </ProtectedRoute>
+            }
+          />
 
         </Routes>
       </Suspense>
