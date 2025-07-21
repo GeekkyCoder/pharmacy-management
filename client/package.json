@@ -30,6 +30,7 @@
     "react-router-dom": "^7.5.0",
     "react-zxing": "^2.1.0",
     "uuid": "^11.1.0",
+    "xlsx": "^0.18.5",
     "yup": "^1.6.1"
   },
   "devDependencies": {

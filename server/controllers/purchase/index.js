@@ -1,8 +1,14 @@
 const SupplierPurchase = require("../../models/sale-purchase");
 const Med = require("../../models/medicine");
 const asyncWrapper = require("../../middlewares/async-wrapper");
+const { options } = require("../../routes/user");
 
 const createSupplierPurchase = asyncWrapper(async (req, res) => {
+
+  const user = req.user;
+
+  const employeeAdmin =  user.admin
+
   try {
     const { Sup_Name, Sup_Phno, purchases, purchaseMadeBy } = req.body;
 
@@ -12,6 +18,7 @@ const createSupplierPurchase = asyncWrapper(async (req, res) => {
       Sup_Phno,
       purchases,
       purchaseMadeBy,
+      admin: employeeAdmin, 
     });
 
     await supplierPurchase.save();
@@ -20,6 +27,7 @@ const createSupplierPurchase = asyncWrapper(async (req, res) => {
     for (const item of purchases) {
       const existingMed = await Med.findOne({
         Med_Name: item.P_Name,
+        admin: employeeAdmin,  // Filter by admin
         // Category: item.Category,
       });
 
@@ -42,6 +50,7 @@ const createSupplierPurchase = asyncWrapper(async (req, res) => {
           Manufacture_Date: item.Mfg_Date,
           Expiry_Date: item.Exp_Date,
           Purchase_Date: item.Pur_Date,
+          admin: employeeAdmin,
         });
 
         await newMed.save();
@@ -59,9 +68,18 @@ const createSupplierPurchase = asyncWrapper(async (req, res) => {
 });
 
 const getSuppliersAndPurchase = asyncWrapper(async (req,res,next) => {
+
+  const user = req.user;
+
   const { page = 1, limit = 5, Sup_Name, ...otherFilters } = req.query;
 
   const filter = {};
+
+  if(user?.role === "admin") {
+    filter.admin = user._id; 
+  }else if(user?.role === "employee") { 
+    filter.admin = user.admin; 
+  }
 
   if (Sup_Name) {
     filter.Sup_Name = { $regex: Sup_Name, $options: "i" }; // case-insensitive search
@@ -90,9 +108,17 @@ const getSuppliersAndPurchase = asyncWrapper(async (req,res,next) => {
 
 
 const getSupplierInfoByMedId = asyncWrapper(async (req,res,next) => {
+
+    const user = req.user;
+
     const {medName} = req.params
     console.log('here', medName)
     const result = await SupplierPurchase.aggregate([
+      {
+        $match: {
+          admin: user._id  // Filter by admin first
+        }
+      },
       { 
         $unwind: "$purchases"  
       },
@@ -116,7 +142,7 @@ const getSupplierInfoByMedId = asyncWrapper(async (req,res,next) => {
       
       return res.status(200).json({supplierDetails:result[0]})
     } else {
-      return res.status(404).json({message:"oops"})
+      return res.status(404).json({message:"No supplier found for this medicine"})
     }
 })
 

@@ -1,19 +1,15 @@
-const {
-  getAllEmployees,
-  createEmployee,
-  updateEmployee,
-  deleteEmployee,
-  getEmployeeById,
-  EmployeeLogin,
-} = require("../../controllers/employee");
+const EmployeeRouter= require("express").Router() 
+const { signupEmployee, employeeLogin,getAllEmployees,getEmployeeById,deleteEmployee,updateEmployee, updateEmployeePassword, changeEmployeePassword } = require("../../controllers/employee");
+const { userAuth } = require("../../middlewares/auth");
+const {isAdmin} = require("../../middlewares/admin");
 
-const Router = require("express").Router();
+EmployeeRouter.post("/signupEmployee", [userAuth,isAdmin], signupEmployee)
+EmployeeRouter.post("/loginEmployee", employeeLogin)
+EmployeeRouter.post("/update-password", updateEmployeePassword)
+EmployeeRouter.post("/change-password", userAuth, changeEmployeePassword)
+EmployeeRouter.get("/getEmployees", [userAuth,isAdmin], getAllEmployees)
+EmployeeRouter.get("/getEmployee/:employeeId", [userAuth,isAdmin], getEmployeeById)
+EmployeeRouter.put("/updateEmployee/:employeeId", [userAuth,isAdmin], updateEmployee)
+EmployeeRouter.delete("/deleteEmployee/:employeeId", [userAuth,isAdmin], deleteEmployee)
 
-Router.post("/login", EmployeeLogin);
-Router.get("/getEmployees/:adminId", getAllEmployees);
-Router.get("/getEmployee/:employeeId", getEmployeeById);
-Router.post("/createEmployee", createEmployee);
-Router.put("/updateEmployee/:employeeId", updateEmployee);
-Router.delete("/deleteEmployee/:employeeId", deleteEmployee);
-
-module.exports = Router;
+module.exports = EmployeeRouter

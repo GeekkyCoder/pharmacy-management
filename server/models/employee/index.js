@@ -1,18 +1,33 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-const employeeSchema = new mongoose.Schema(
-  {
-    E_Username:String,
-    E_Password:String,
-    E_Fname: String,
-    E_Lname: String,
-    E_Sex: String,
-    E_Phno: String,
-    E_Jdate: Date,
-    Role:{type:String,default:"employee"},
-    Admin_ID: {type:mongoose.Schema.Types.ObjectId, ref:"Admin"},
+const employeeSchema = new mongoose.Schema({
+  userName: {
+    type: String,
+    required: true,
+    index: true
   },
-  { timestamps: true }
-);
+  password: {
+    type: String,
+    required: true,
+  },
+  email: {
+    type: String,
+    unique: true,
+  },
+  admin:{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  role:{type:String, default:"employee"},
+  active: {
+    type: Boolean,
+    default: false
+  },
+  verificationToken: {
+    type: String,
+    default: null
+  }
+},{ timestamps: true });
 
-module.exports = mongoose.model("Employee", employeeSchema);
+module.exports = mongoose.model('Employee', employeeSchema);

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Formik, Form, Field, ErrorMessage } from "formik";
-import { Card, Input, Button, Typography } from "antd";
+import { Card, Input, Button, Typography, Radio } from "antd";
 import * as Yup from "yup";
 import { useDispatch, useSelector } from "react-redux";
-import { login, logout, Employeelogin } from "../../redux/slices/authSlice";
+import { login, logout } from "../../redux/slices/authSlice";
 import { v4 as uuidv4 } from "uuid";
-import "./login.css"
+import "./login.css";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
 import { useNavigate } from "react-router-dom";
@@ -13,36 +13,38 @@ import { useNavigate } from "react-router-dom";
 const { Title } = Typography;
 
 const LoginSchema = Yup.object().shape({
-  username: Yup.string().required("Username is required"),
+  email: Yup.string().email().required("Email is required"),
   password: Yup.string().required("Password is required"),
+  role: Yup.string().required("Role is required"),
 });
 
-const LoginForm = ({ role, onSwitch, onSubmit }) => {
+const LoginForm = ({ onSubmit }) => {
   return (
     <Formik
-      initialValues={{ username: "", password: "" }}
+      initialValues={{ email: "", password: "", role: "" }}
       validationSchema={LoginSchema}
       onSubmit={onSubmit}
     >
-      {({ handleChange, handleBlur, values }) => (
+      {({ handleChange, handleBlur, values, setFieldValue }) => (
         <Form>
           <Title level={3} className="login-title">
-            {role} Login
+            Login
           </Title>
 
-          <Field name="username">
+          <Field name="email">
             {() => (
               <Input
-                name="username"
-                placeholder="Username"
+                name="email"
+                type="email"
+                placeholder="Email"
                 onChange={handleChange}
                 onBlur={handleBlur}
-                value={values.username}
+                value={values.email}
                 className="login-input"
               />
             )}
           </Field>
-          <ErrorMessage name="username" component="div" className="error" />
+          <ErrorMessage name="email" component="div" className="error" />
 
           <Field name="password">
             {() => (
@@ -58,6 +60,26 @@ const LoginForm = ({ role, onSwitch, onSubmit }) => {
           </Field>
           <ErrorMessage name="password" component="div" className="error" />
 
+          <Field name="role">
+            {() => (
+              <div style={{ marginBottom: "16px", marginTop: "8px" }}>
+                <Typography.Text style={{ marginBottom: "8px", display: "block" }}>
+                  Select Role:
+                </Typography.Text>
+                <Radio.Group
+                  name="role"
+                  value={values.role}
+                  onChange={(e) => setFieldValue("role", e.target.value)}
+                  style={{ width: "100%" }}
+                >
+                  <Radio value="admin">Admin</Radio>
+                  <Radio value="employee">Employee</Radio>
+                </Radio.Group>
+              </div>
+            )}
+          </Field>
+          <ErrorMessage name="role" component="div" className="error" />
+
           <Button
             type="primary"
             htmlType="submit"
@@ -65,10 +87,6 @@ const LoginForm = ({ role, onSwitch, onSubmit }) => {
             className="login-button"
           >
             Submit
-          </Button>
-
-          <Button style={{margin:"2em 0"}} type="link" onClick={onSwitch} block>
-            Click here for {role === "Admin" ? "Employee" : "Admin"} Login
           </Button>
         </Form>
       )}
@@ -79,53 +97,56 @@ const LoginForm = ({ role, onSwitch, onSubmit }) => {
 const LoginPage = (props) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
-  const [role, setRole] = useState("Admin");
+  const { loading, error } = useSelector((state) => state.auth);
 
   const handleLogin = async (values) => {
+    console.log("Login values:", values);
     props.setLoading(true);
-    switch (role) {
-      case "Admin":
-        await dispatch(
-          login({
-            A_ID: uuidv4(),
-            A_Username: values?.username,
-            A_Password: values?.password,
-          })
-        );
-        break;
-      case "Employee":
-        await dispatch(
-          Employeelogin({
-            E_Username: values?.username,
-            E_Password: values?.password,
-          })
-        );
-        break     
-    }
 
-    props.setLoading(false);
-    navigate("/");
+    try {
+      const res = await dispatch(
+        login({ 
+          userEmail: values?.email, 
+          userPassword: values?.password,
+          role: values?.role
+        })
+      );
+      
+      if (login.fulfilled.match(res)) {
+        props.success("Login successful!");
+        navigate("/");
+      } else {
+        props.error(res.payload || "Login failed");
+      }
+    } catch (err) {
+      props.error("An unexpected error occurred");
+    } finally {
+      props.setLoading(false);
+    }
   };
 
   return (
     <div className="login-wrapper">
       <div className="login-header">
-        <Title className="main-title">Rashid Pharmacy</Title>
-        <p className="sub-title">Pharmacy Management System</p>
+        <Title className="main-title">Pharmacy Management System</Title>
       </div>
 
       <div className="login-center-card">
         <Card className="login-card">
-          <LoginForm
-            role={role}
-            onSwitch={() => setRole(role === "Admin" ? "Employee" : "Admin")}
-            onSubmit={handleLogin}
-          />
+          <LoginForm onSubmit={handleLogin} />
         </Card>
       </div>
 
-      <div className="login-footer">developed by <a style={{color:"white"}} target="_blank" href="https://github.com/GeekkyCoder">Faraz</a> </div>
+      <div className="login-footer">
+        Developed by{" "}
+        <a
+          style={{ color: "white" }}
+          target="_blank"
+          href="https://github.com/GeekkyCoder"
+        >
+          Faraz
+        </a>{" "}
+      </div>
     </div>
   );
 };

@@ -9,9 +9,9 @@ const fetchPurchaseData = async (params, onSuccess, onFailure) => {
       }
     );
 
-    if (response.status !== 200) {
-      throw new Error(response.request?.message);
-    }
+    // if (response.status !== 200) {
+    //   throw new Error(response.request?.message);
+    // }
 
     const { data = [], limit = 5, totalRecords,currentPage } = response?.data;
 
@@ -27,8 +27,9 @@ const fetchPurchaseData = async (params, onSuccess, onFailure) => {
     }
     return true
   } catch (err) {
-      onFailure(err?.message);
-      return false
+    const errorMessage = err?.response?.data?.message || err.message || "Failed to fetch purchase data";
+    onFailure(errorMessage);
+    return false
   }
 };
 

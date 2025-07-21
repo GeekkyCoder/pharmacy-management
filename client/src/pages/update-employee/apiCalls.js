@@ -23,16 +23,17 @@ const updateEmployee = async (employeeId, body, onFailure) => {
       body
     );
 
-    if (response.status !== 201) {
-      throw new Error(response.statusText);
-    }
+    // if (response.status !== 201) {
+    //   throw new Error(response.statusText);
+    // }
 
     const { data } = response?.data;
 
     if (data) return true;
     console.log("response", response);
   } catch (err) {
-    onFailure(err?.message);
+    const errorMsg = err?.response?.data?.message || err.message;
+    onFailure(errorMsg);
     return false;
   }
 };

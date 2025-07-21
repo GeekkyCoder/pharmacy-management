@@ -7,10 +7,11 @@ import { useSelector } from "react-redux";
 
 import RestockPurchase from "./pages/restock-purchase"
 import BarcodeScanner from "./pages/barcode";
+import MedicineInventory from "./pages/inventory";
 // Lazy loaded pages
 const Home = React.lazy(() => import("./pages/home"));
 const SaleReports = React.lazy(() => import("./pages/sale-reports"));
-const MedicineInventory = React.lazy(() => import("./pages/inventory"));
+// const MedicineInventory = React.lazy(() => import("./pages/inventory"));
 const AddEmployee = React.lazy(() => import("./pages/add-employess"));
 const ManageEmployees = React.lazy(() => import("./pages/manage-employees"));
 const UpdateEmployee = React.lazy(() => import("./pages/update-employee"));
@@ -23,6 +24,9 @@ const ViewSuppliers = React.lazy(() => import("./pages/view-suppliers"));
 const ViewInvoices = React.lazy(() => import("./pages/view-invoices"));
 const ViewSales = React.lazy(() => import("./pages/view-sales"));
 const UnAuthorized = React.lazy(() => import("./pages/unauthorized"));
+const SignupPage = React.lazy(() => import("./pages/signup"));
+const UpdatePassword = React.lazy(() => import("./pages/update-password"));
+const Settings = React.lazy(() => import("./pages/settings"));
 
 const App = () => {
   const user = useSelector((state) => state.auth.user);
@@ -32,14 +36,16 @@ const App = () => {
       <Suspense fallback={<div>Loading...</div>}>
         <Routes>
           <Route path="/auth/login" element={<LoginPage />} />
-          <Route  path="/unauthorized" element={<UnAuthorized/>}/>
+          <Route path="/unauthorized" element={<UnAuthorized/>}/>
+          <Route path="/update-password" element={<UpdatePassword/>}/>
+
 
           {/* All other routes go under protected route */}
           <Route
             path="/"
             element={
-              <ProtectedRoute user={user} allowedRoles={["admin", "employee"]}>
-                <DashboardLayout />
+              <ProtectedRoute isDashaboardAndEmployee={user?.role === "employee"} user={user} allowedRoles={["admin","employee"]}>
+                <DashboardLayout user={user}/>
               </ProtectedRoute>
             }
           >
@@ -62,6 +68,17 @@ const App = () => {
                   allowedRoles={["admin"]}
                 >
                   <SaleReports />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute
+                  user={user}
+                  allowedRoles={["admin"]}
+                >
+                  <Settings />
                 </ProtectedRoute>
               }
             />
@@ -92,6 +109,14 @@ const App = () => {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="signup-admin"
+              element={
+                <ProtectedRoute user={user} allowedRoles={["admin"]}>
+                  <SignupPage />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="add-sale"
@@ -110,7 +135,7 @@ const App = () => {
               element={
                 <ProtectedRoute
                   user={user}
-                  allowedRoles={["admin", "employee"]}
+                  allowedRoles={["employee"]}
                 >
                   <AddSupplierPurchase />
                 </ProtectedRoute>
@@ -179,6 +204,14 @@ const App = () => {
             }
           />
 
+          <Route
+            path="change-password"
+            element={
+              <ProtectedRoute user={user} allowedRoles={["admin","employee"]}>
+                <UpdatePassword />
+              </ProtectedRoute>
+            }
+          />
 
         </Routes>
       </Suspense>

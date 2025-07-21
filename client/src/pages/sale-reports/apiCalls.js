@@ -13,6 +13,7 @@ export const salesReport = async (body, onSuccess, onFailure) => {
       if (success) onSuccess({data, message });
       else onFailure(message);
     } catch (err) {
+      onFailure(err?.response?.data?.message || err.message);
       return false;
     }
   };

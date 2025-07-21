@@ -4,35 +4,35 @@ import * as Yup from "yup";
 import {
   Input,
   Button,
-  Select,
-  DatePicker,
   Row,
   Col,
   Typography,
   Form,
   message,
 } from "antd";
-import moment from "moment";
 import { createEmployee } from "./apiCalls";
 import { useSelector } from "react-redux";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
 
 const { Title } = Typography;
-const { Option } = Select;
 
 const AddEmployee = (props) => {
   const user = useSelector((state) => state.auth.user);
 
   const validationSchema = Yup.object({
-    E_Fname: Yup.string().required("First name is required"),
-    E_Lname: Yup.string().required("Last name is required"),
-    E_Password: Yup.string().required("Password is required"),
-    E_Sex: Yup.string().required("Sex is required"),
-    E_Phno: Yup.string()
-  .required("Phone is required")
-  .matches(/^03\d{9}$/, "Phone must start with 03 and be 11 digits"),
-    E_date: Yup.date().required("Join date is required"),
+    firstName: Yup.string()
+      .min(2, "First name must be at least 2 characters")
+      .required("First name is required"),
+    lastName: Yup.string()
+      .min(2, "Last name must be at least 2 characters")
+      .required("Last name is required"),
+    email: Yup.string()
+      .email("Invalid email format")
+      .required("Email is required"),
+    password: Yup.string()
+      .min(6, "Password must be at least 6 characters")
+      .required("Password is required"),
   });
 
   const formItemLayout = {
@@ -43,18 +43,25 @@ const AddEmployee = (props) => {
   const submitCreateEmployee = async (body, resetForm) => {
     props.setLoading(true);
     const reqBody = {
-      Admin_ID: user?._id,
+      userName: `${body?.firstName} ${body?.lastName}`,
       ...body,
     };
-    const response = await createEmployee(reqBody);
+    
+    try {
+      const response = await createEmployee(reqBody);
 
-    if (response) {
-      props.success(response?.message);
-      resetForm();
-    } else {
-      props.error("Failed to create employee");
+      if (response?.success) {
+        props.success(response.message);
+        resetForm();
+      } else {
+        props.error(response?.message || "Failed to create employee");
+      }
+    } catch (error) {
+      console.error("Error in submitCreateEmployee:", error);
+      props.error("An unexpected error occurred. Please try again.");
+    } finally {
+      props.setLoading(false);
     }
-    props.setLoading(false);
   };
 
   return (
@@ -84,12 +91,10 @@ const AddEmployee = (props) => {
 
         <Formik
           initialValues={{
-            E_Fname: "",
-            E_Lname: "",
-            E_Password: "",
-            E_Sex: "",
-            E_Phno: "",
-            E_date: "",
+            firstName: "",
+            lastName: "",
+            email: "",
+            password: "",
           }}
           validationSchema={validationSchema}
           onSubmit={async (values, { resetForm, setSubmitting }) => {
@@ -119,16 +124,17 @@ const AddEmployee = (props) => {
                   <Form.Item
                     label="First Name"
                     validateStatus={
-                      touched.E_Fname && errors.E_Fname ? "error" : ""
+                      touched.firstName && errors.firstName ? "error" : ""
                     }
-                    help={touched.E_Fname && errors.E_Fname}
+                    help={touched.firstName && errors.firstName}
                     {...formItemLayout}
                   >
                     <Input
-                      name="E_Fname"
-                      value={values.E_Fname}
+                      name="firstName"
+                      value={values.firstName}
                       onChange={handleChange}
                       onBlur={handleBlur}
+                      placeholder="Enter first name"
                     />
                   </Form.Item>
                 </Col>
@@ -137,16 +143,37 @@ const AddEmployee = (props) => {
                   <Form.Item
                     label="Last Name"
                     validateStatus={
-                      touched.E_Lname && errors.E_Lname ? "error" : ""
+                      touched.lastName && errors.lastName ? "error" : ""
                     }
-                    help={touched.E_Lname && errors.E_Lname}
+                    help={touched.lastName && errors.lastName}
                     {...formItemLayout}
                   >
                     <Input
-                      name="E_Lname"
-                      value={values.E_Lname}
+                      name="lastName"
+                      value={values.lastName}
                       onChange={handleChange}
                       onBlur={handleBlur}
+                      placeholder="Enter last name"
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col span={12}>
+                  <Form.Item
+                    label="Email"
+                    validateStatus={
+                      touched.email && errors.email ? "error" : ""
+                    }
+                    help={touched.email && errors.email}
+                    {...formItemLayout}
+                  >
+                    <Input
+                      name="email"
+                      type="email"
+                      value={values.email}
+                      onChange={handleChange}
+                      onBlur={handleBlur}
+                      placeholder="Enter email address"
                     />
                   </Form.Item>
                 </Col>
@@ -155,74 +182,17 @@ const AddEmployee = (props) => {
                   <Form.Item
                     label="Password"
                     validateStatus={
-                      touched.E_Password && errors.E_Password ? "error" : ""
+                      touched.password && errors.password ? "error" : ""
                     }
-                    help={touched.E_Password && errors.E_Password}
+                    help={touched.password && errors.password}
                     {...formItemLayout}
                   >
-                    <Input
-                      name="E_Password"
-                      value={values.E_Password}
+                    <Input.Password
+                      name="password"
+                      value={values.password}
                       onChange={handleChange}
                       onBlur={handleBlur}
-                    />
-                  </Form.Item>
-                </Col>
-
-                <Col span={12}>
-                  <Form.Item
-                    label="Sex"
-                    validateStatus={
-                      touched.E_Sex && errors.E_Sex ? "error" : ""
-                    }
-                    help={touched.E_Sex && errors.E_Sex}
-                    {...formItemLayout}
-                  >
-                    <Select
-                      name="E_Sex"
-                      value={values.E_Sex}
-                      onChange={(value) => setFieldValue("E_Sex", value)}
-                      onBlur={handleBlur}
-                    >
-                      <Option value="Male">Male</Option>
-                      <Option value="Female">Female</Option>
-                      <Option value="Other">Other</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-
-              
-                <Col span={12}>
-                  <Form.Item
-                    label="Phone"
-                    validateStatus={
-                      touched.E_Phno && errors.E_Phno ? "error" : ""
-                    }
-                    help={touched.E_Phno && errors.E_Phno}
-                    {...formItemLayout}
-                  >
-                    <Input
-                      name="E_Phno"
-                      value={values.E_Phno}
-                      onChange={handleChange}
-                      onBlur={handleBlur}
-                    />
-                  </Form.Item>
-                </Col>
-
-                <Col span={12}>
-                  <Form.Item
-                    label="Join Date"
-                    validateStatus={
-                      touched.E_date && errors.E_date ? "error" : ""
-                    }
-                    help={touched.E_date && errors.E_date}
-                    {...formItemLayout}
-                  >
-                    <DatePicker
-                      style={{ width: "100%" }}
-                      value={values.E_date ? moment(values.E_date) : null}
-                      onChange={(date) => setFieldValue("E_date", date)}
+                      placeholder="Enter password"
                     />
                   </Form.Item>
                 </Col>

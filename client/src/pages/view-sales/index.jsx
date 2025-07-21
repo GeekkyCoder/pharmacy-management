@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { Table, Typography, Input, Space } from "antd";
-import axios from "axios";
+import axios from "../../api/axios";
 import dayjs from "dayjs";
+import WithMessages from "../../hocs/messages";
+
 
 const { Title } = Typography;
 const { Search } = Input;
 
-const ViewSales = () => {
+const ViewSales = (props) => {
   const [sales, setSales] = useState([]);
   const [pagination, setPagination] = useState({
     current: 1,
@@ -20,7 +22,7 @@ const ViewSales = () => {
     setLoading(true);
     try {
       const response = await axios.get(
-        "http://localhost:8000/sale/getAllSales",
+        "/sale/getAllSales",
         {
           params: { page, limit, search },
         }
@@ -31,7 +33,7 @@ const ViewSales = () => {
       setSales(data);
       setPagination({ current, pageSize, total });
     } catch (error) {
-      console.error("Error fetching sales:", error);
+      props.error(error?.response?.data?.message || "Failed to fetch sales");
     } finally {
       setLoading(false);
     }
@@ -62,7 +64,7 @@ const ViewSales = () => {
       key: "C_ID",
     },
     {
-      title: "Total Price",
+      title: "Total Sold Price",
       dataIndex: "Total_Price",
       key: "Total_Price",
       render: (price) => `Rs. ${price?.toFixed(2)}`,
@@ -71,7 +73,7 @@ const ViewSales = () => {
       title: "Sale Performed By",
       dataIndex: "employeeId",
       key: "employeeId",
-      render: (emp) => (emp ? `${emp.E_Username}` : "N/A"),
+      render: (emp) => (emp ? `${emp.userName} (${emp?.role})` : "N/A"),
     },
     {
       title: "Sale Date",
@@ -150,4 +152,4 @@ const ViewSales = () => {
   );
 };
 
-export default ViewSales;
+export default  WithMessages(ViewSales);

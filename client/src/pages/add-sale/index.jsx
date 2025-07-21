@@ -18,6 +18,11 @@ import {
   Steps,
   Card,
   message,
+  Table,
+  Space,
+  Statistic,
+  Tag,
+  Alert,
 } from "antd";
 import { DeleteOutlined } from "@ant-design/icons";
 import { Formik, FieldArray } from "formik";
@@ -27,7 +32,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import generateCustomerId from "../../utils/generateCustomerID";
 import { useSelector } from "react-redux";
-import { createNewSale, getAllMedicines } from "./apiCalls";
+import { createNewSale, getAllMedicines, calculateSaleDiscount, getPharmacyInfo } from "./apiCalls";
 import WithLoader from "../../hocs/loader";
 import WithMessages from "../../hocs/messages";
 import generateInvoiceId from "../../utils/generateInvoiceId";
@@ -37,10 +42,23 @@ import { useNavigate } from "react-router-dom";
 
 const { Title } = Typography;
 
-// Dummy Pharmacy Details
-const pharmacyName = "Al Shifa Pharmacy";
-const pharmacyLogo =
-  "https://static.vecteezy.com/system/resources/previews/023/432/110/non_2x/low-poly-and-creative-medical-pharmacy-logo-design-design-concept-free-vector.jpg";
+// Default Pharmacy Details (fallback)
+const defaultPharmacyInfo = {
+  pharmacyName: "Al Shifa Pharmacy",
+  pharmacyLogo: "https://static.vecteezy.com/system/resources/previews/023/432/110/non_2x/low-poly-and-creative-medical-pharmacy-logo-design-design-concept-free-vector.jpg",
+  address: {
+    street: "Al Shifa Diagnostic and clinic center near Edigah",
+    city: "Kashmore",
+    state: "Sindh",
+    country: "Pakistan"
+  },
+  contactInfo: {
+    phone: "(0314) 7320-407",
+    email: "info@alshifa.com"
+  },
+  licenseNumber: "PH-2024-001234",
+  description: "Medical Store & Pharmacy"
+};
 
 const steps = [
   {
@@ -48,8 +66,12 @@ const steps = [
     content: "First-content",
   },
   {
-    title: "Review & Print",
+    title: "Checkout & Discounts", 
     content: "Second-content",
+  },
+  {
+    title: "Review & Print",
+    content: "Third-content",
   },
 ];
 
@@ -92,7 +114,11 @@ const validationSchema = [
       })
     ),
   }),
-  // Second step validation
+  // Second step (checkout) validation
+  Yup.object({
+    medicines: Yup.array().min(1, "At least one medicine is required"),
+  }),
+  // Third step (review) validation
   Yup.object({}), // No validation needed for review step
 ];
 
@@ -100,8 +126,12 @@ const AddSale = (props) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [medicinesData, setMedicinesData] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [discountData, setDiscountData] = useState(null);
+  const [isCalculatingDiscount, setIsCalculatingDiscount] = useState(false);
+  const [originalTotal, setOriginalTotal] = useState(0);
   const [invoiceData, setInvoiceData] = useState({});
   const [printBtnLoading, setPrintBtnLoading] = useState(false);
+  const [pharmacyInfo, setPharmacyInfo] = useState(defaultPharmacyInfo);
   const invoiceRef = useRef(null);
   const { modalOpen, toggleModal } = useModal();
   const user = useSelector((state) => state.auth.user);
@@ -117,10 +147,70 @@ const AddSale = (props) => {
         total += price * (item.Sale_Qty || 0);
       });
       setTotalAmount(total);
+      setOriginalTotal(total);
       return total; // Return total for immediate use
     },
     [medicinesData]
   );
+
+  // Calculate discount for sale items
+  const calculateSaleDiscounts = async (values) => {
+    setIsCalculatingDiscount(true);
+    
+    // Transform sale items to the format expected by the discount API
+    const items = values.medicines.map(item => {
+      const med = medicinesData.find((m) => m._id === item.Med_Name);
+      return {
+        medicineId: item.Med_Name,
+        quantity: item.Sale_Qty || 1
+      };
+    }).filter(item => item.medicineId); // Filter out invalid items
+
+    if (items.length === 0) {
+      setIsCalculatingDiscount(false);
+      return;
+    }
+
+    await calculateSaleDiscount(
+      items,
+      (data) => {
+        setDiscountData(data);
+        // Update total amount with discounted price
+        setTotalAmount(data.summary.totalFinalAmount);
+        setIsCalculatingDiscount(false);
+      },
+      (error) => {
+        props.error(error);
+        setIsCalculatingDiscount(false);
+        // Set basic calculation without discounts
+        const originalTotal = calculateTotalAmount(values);
+        const basicData = {
+          items: values.medicines.map(item => {
+            const med = medicinesData.find((m) => m._id === item.Med_Name);
+            const originalAmount = (med?.Med_Price || 0) * (item.Sale_Qty || 0);
+            return {
+              medicine: {
+                id: med?._id,
+                name: med?.Med_Name,
+                price: med?.Med_Price || 0
+              },
+              quantity: item.Sale_Qty || 0,
+              originalAmount,
+              discountApplied: null,
+              finalAmount: originalAmount
+            };
+          }),
+          summary: {
+            totalOriginalAmount: originalTotal,
+            totalDiscountAmount: 0,
+            totalFinalAmount: originalTotal,
+            totalSavings: 0
+          }
+        };
+        setDiscountData(basicData);
+      }
+    );
+  };
 
   const handlePrint = async (values, resetForm) => {
     const printContents = invoiceRef.current.innerHTML;
@@ -128,26 +218,32 @@ const AddSale = (props) => {
     setPrintBtnLoading(true);
     props.setLoading(true);
 
-    // Recalculate total before printing
-    const calculatedTotal = calculateTotalAmount(values);
+    // Use discounted total if available, otherwise calculate original total
+    const finalTotal = discountData?.summary?.totalFinalAmount || calculateTotalAmount(values);
+    const savings = discountData?.summary?.totalSavings || 0;
 
     const body = {
       invoiceId: generateInvoiceId(),
       customerId: generateCustomerId(),
       customerName: values.C_Name,
-      items: values.medicines.map((item) => {
+      items: values.medicines.map((item, index) => {
         const med = medicinesData.find((m) => m._id === item.Med_Name);
+        const discountItem = discountData?.items?.[index];
         return {
           name: med?.Med_Name || "",
           price: med?.Med_Price || 0,
           quantity: item.Sale_Qty,
+          originalAmount: (med?.Med_Price || 0) * item.Sale_Qty,
+          finalAmount: discountItem?.finalAmount || (med?.Med_Price || 0) * item.Sale_Qty,
+          discount: discountItem?.discountApplied || null,
         };
       }),
-      totalAmount: calculatedTotal,
+      originalAmount: originalTotal,
+      totalAmount: finalTotal,
+      totalSavings: savings,
       date: moment().format("YYYY-MM-DD"),
       time: moment().format("HH:mm:ss A"),
-      pharmacyName,
-      pharmacyLogo,
+      pharmacyInfo,
     };
 
     const reqBody = {
@@ -155,12 +251,16 @@ const AddSale = (props) => {
       C_Name: body?.customerName,
       C_ID: body?.customerId,
       employeeId: user?._id,
-      totalPrice: calculatedTotal,
+      totalPrice: finalTotal,
+      originalPrice: originalTotal,
+      totalSavings: savings,
+      discountInfo: discountData?.summary || null,
       medicines: body.items.map((item) => {
         const med = medicinesData.find((m) => m.Med_Name === item.name);
         return {
           Med_ID: med?._id,
           Sale_Qty: item?.quantity,
+          finalPrice: item.finalAmount,
         };
       }),
       No_Of_Items: body.items.length,
@@ -171,6 +271,8 @@ const AddSale = (props) => {
           Med_Name: item.name,
           Med_Qty: item.quantity,
           Med_Price: item.price,
+          finalPrice: item.finalAmount,
+          discount: item.discount,
         };
       }),
     };
@@ -191,164 +293,376 @@ const AddSale = (props) => {
         printWindow.document.write(`
           <html>
             <head>
-              <title>Print Invoice</title>
+              <title>Invoice - ${body.invoiceId}</title>
               <style>
-              @page {
-                margin: 0;
-                size: 58mm 210mm;
-              }
-            
-              body {
-                font-family: 'Courier New', monospace;
-                margin: 0;
-                padding: 0;
-                font-size: 10px;
-                line-height: 1.2;
-                background: white;
-                position: relative;
-                height: 100%;
-              }
-            
-              .print-container {
-                width: 58mm;
-                position: absolute;
-                left: 50%;
-                transform: translateX(-50%);
-                padding: 8px;
-                box-sizing: border-box;
-              }
-            
-              .header {
-                text-align: center;
-                margin-bottom: 10px;
-                border-bottom: 1px dashed #000;
-                padding-bottom: 5px;
-              }
-            
-              .logo {
-                max-width: 50px;
-                height: auto;
-                margin: 0 auto;
-                display: block;
-              }
-            
-              .pharmacy-name {
-                font-size: 14px;
-                font-weight: bold;
-                margin: 5px 0;
-              }
-            
-              .invoice-details {
-                margin: 8px 0;
-                font-size: 9px;
-              }
-            
-              .divider {
-                border-top: 1px dashed #000;
-                margin: 5px 0;
-              }
-            
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                font-size: 9px;
-                margin: 8px 0;
-              }
-            
-              th, td {
-                text-align: left;
-                padding: 3px 0;
-              }
-            
-              .item-row td {
-                border-bottom: 1px dotted #ccc;
-              }
-            
-              .total-section {
-                margin-top: 8px;
-                text-align: right;
-                font-weight: bold;
-              }
-            
-              .footer {
-                margin-top: 10px;
-                text-align: center;
-                font-size: 8px;
-                border-top: 1px dashed #000;
-                padding-top: 5px;
-              }
-            
-              @media print {
-                body {
+                @page {
+                  margin: 0;
+                  size: 80mm 297mm;
+                }
+              
+                * {
                   margin: 0;
                   padding: 0;
-                  height: 100%;
+                  box-sizing: border-box;
                 }
-            
-                .print-container {
-                  position: absolute;
-                  left: 50%;
-                  transform: translateX(-50%);
+              
+                body {
+                  font-family: 'Courier New', monospace;
+                  font-size: 11px;
+                  line-height: 1.4;
+                  color: #000;
+                  background: white;
+                  width: 80mm;
+                  margin: 0 auto;
+                  padding: 8px;
                 }
-              }
-            </style>
-            
+              
+                .receipt-container {
+                  width: 100%;
+                  max-width: 76mm;
+                  margin: 0 auto;
+                }
+              
+                .header {
+                  text-align: center;
+                  margin-bottom: 12px;
+                  padding-bottom: 8px;
+                  border-bottom: 2px solid #000;
+                }
+              
+                .logo {
+                  max-width: 60px;
+                  height: auto;
+                  margin: 0 auto 8px;
+                  display: block;
+                  border-radius: 50%;
+                }
+              
+                .pharmacy-name {
+                  font-size: 16px;
+                  font-weight: bold;
+                  margin: 4px 0;
+                  text-transform: uppercase;
+                  letter-spacing: 1px;
+                }
+              
+                .pharmacy-tagline {
+                  font-size: 10px;
+                  font-style: italic;
+                  margin: 2px 0;
+                  color: #555;
+                }
+              
+                .pharmacy-details {
+                  font-size: 9px;
+                  margin: 2px 0;
+                  line-height: 1.2;
+                }
+              
+                .license-info {
+                  font-size: 8px;
+                  margin-top: 4px;
+                  color: #666;
+                }
+              
+                .invoice-header {
+                  text-align: center;
+                  margin: 10px 0;
+                  padding: 6px 0;
+                  background: #f0f0f0;
+                  border: 1px solid #ccc;
+                }
+              
+                .invoice-title {
+                  font-size: 14px;
+                  font-weight: bold;
+                  margin-bottom: 4px;
+                }
+              
+                .customer-info {
+                  margin: 10px 0;
+                  padding: 6px;
+                  background: #f9f9f9;
+                  border: 1px dashed #999;
+                }
+              
+                .info-row {
+                  display: flex;
+                  justify-content: space-between;
+                  margin: 2px 0;
+                  font-size: 10px;
+                }
+              
+                .divider {
+                  border-top: 1px dashed #000;
+                  margin: 8px 0;
+                }
+              
+                .solid-divider {
+                  border-top: 2px solid #000;
+                  margin: 8px 0;
+                }
+              
+                .items-table {
+                  width: 100%;
+                  border-collapse: collapse;
+                  margin: 8px 0;
+                }
+              
+                .items-table th {
+                  background: #e0e0e0;
+                  padding: 4px 2px;
+                  font-size: 9px;
+                  font-weight: bold;
+                  text-align: left;
+                  border-bottom: 1px solid #999;
+                }
+              
+                .items-table td {
+                  padding: 3px 2px;
+                  font-size: 9px;
+                  border-bottom: 1px dotted #ccc;
+                  vertical-align: top;
+                }
+              
+                .item-name {
+                  font-weight: bold;
+                  max-width: 30mm;
+                  word-wrap: break-word;
+                }
+              
+                .text-right {
+                  text-align: right;
+                }
+              
+                .text-center {
+                  text-align: center;
+                }
+              
+                .discount-info {
+                  background: #e8f5e8;
+                  padding: 4px;
+                  margin: 4px 0;
+                  border: 1px dashed #4CAF50;
+                  font-size: 9px;
+                }
+              
+                .totals-section {
+                  margin: 10px 0;
+                  padding: 8px;
+                  background: #f5f5f5;
+                  border: 1px solid #ddd;
+                }
+              
+                .total-row {
+                  display: flex;
+                  justify-content: space-between;
+                  margin: 3px 0;
+                  font-size: 10px;
+                }
+              
+                .final-total {
+                  font-size: 14px;
+                  font-weight: bold;
+                  padding: 4px 0;
+                  border-top: 2px solid #000;
+                  margin-top: 4px;
+                }
+              
+                .savings-highlight {
+                  color: #4CAF50;
+                  font-weight: bold;
+                }
+              
+                .footer {
+                  text-align: center;
+                  margin-top: 12px;
+                  padding-top: 8px;
+                  border-top: 2px solid #000;
+                  font-size: 8px;
+                  line-height: 1.3;
+                }
+              
+                .thank-you {
+                  font-size: 10px;
+                  font-weight: bold;
+                  margin: 4px 0;
+                }
+              
+                .return-policy {
+                  font-size: 7px;
+                  color: #666;
+                  margin: 2px 0;
+                }
+              
+                .qr-placeholder {
+                  width: 30px;
+                  height: 30px;
+                  background: #ddd;
+                  margin: 8px auto;
+                  border: 1px solid #999;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  font-size: 6px;
+                }
+              
+                @media print {
+                  body {
+                    margin: 0;
+                    padding: 8px;
+                  }
+                  
+                  .receipt-container {
+                    page-break-inside: avoid;
+                  }
+                }
+              </style>
             </head>
             <body>
-            <div class="print-container">
-              <div class="header">
-                <img src="${pharmacyLogo}" class="logo" alt="Logo">
-                <div class="pharmacy-name">${pharmacyName}</div>
-                <div>Medical Store & Pharmacy</div>
-                <div style="font-size: 8px">Al Shifa Diagnostic and clinic center near Edigah Kashmore</div>
-                <div style="font-size: 8px">Tel: (0314) 7320-407</div>
-              </div>
+              <div class="receipt-container">
+                <!-- Header Section -->
+                <div class="header">
+                  <img src="${body.pharmacyInfo.pharmacyLogo || defaultPharmacyInfo.pharmacyLogo}" class="logo" alt="Logo">
+                  <div class="pharmacy-name">${body.pharmacyInfo.pharmacyName || defaultPharmacyInfo.pharmacyName}</div>
+                  <div class="pharmacy-details">
+                    ${body.pharmacyInfo.address?.street || defaultPharmacyInfo.address.street}<br>
+                    ${body.pharmacyInfo.address?.city || defaultPharmacyInfo.address.city}, ${body.pharmacyInfo.address?.state || defaultPharmacyInfo.address.state}<br>
+                    Tel: ${body.pharmacyInfo.contactInfo?.phone || defaultPharmacyInfo.contactInfo.phone}<br>
+                    ${body.pharmacyInfo.contactInfo?.email ? `Email: ${body.pharmacyInfo.contactInfo.email}` : `Email: ${defaultPharmacyInfo.contactInfo.email}`}
+                  </div>
+                  <div class="license-info">
+                    License: ${body.pharmacyInfo.licenseNumber || defaultPharmacyInfo.licenseNumber}
+                  </div>
+                </div>
 
-              <div class="invoice-details">
-                <div>Invoice #: ${body.invoiceId}</div>
-                <div>Date: ${body.date}</div>
-                <div>Time: ${body.time}</div>
-                <div>Customer: ${body.customerName}</div>
-                <div>Customer ID: ${body.customerId}</div>
-              </div>
+                <!-- Invoice Header -->
+                <div class="invoice-header">
+                  <div class="invoice-title">SALES INVOICE</div>
+                  <div>Invoice #: ${body.invoiceId}</div>
+                </div>
 
-              <div class="divider"></div>
+                <!-- Customer Information -->
+                <div class="customer-info">
+                  <div class="info-row">
+                    <span><strong>Customer:</strong></span>
+                    <span>${body.customerName}</span>
+                  </div>
+                  <div class="info-row">
+                    <span><strong>Customer ID:</strong></span>
+                    <span>${body.customerId}</span>
+                  </div>
+                  <div class="info-row">
+                    <span><strong>Date:</strong></span>
+                    <span>${body.date}</span>
+                  </div>
+                  <div class="info-row">
+                    <span><strong>Time:</strong></span>
+                    <span>${body.time}</span>
+                  </div>
+                  <div class="info-row">
+                    <span><strong>Served by:</strong></span>
+                    <span>${user?.name || 'Staff'}</span>
+                  </div>
+                </div>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Qty</th>
-                    <th>Price</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${body.items
-                    .map(
-                      (item) => `
-                    <tr class="item-row">
-                      <td>${item.name}</td>
-                      <td>${item.quantity}</td>
-                      <td>${item.price}</td>
-                      <td>${item.price * item.quantity}</td>
+                <div class="divider"></div>
+
+                <!-- Items Table -->
+                <table class="items-table">
+                  <thead>
+                    <tr>
+                      <th style="width: 40%;">Item</th>
+                      <th style="width: 15%;" class="text-center">Qty</th>
+                      <th style="width: 20%;" class="text-right">Price</th>
+                      <th style="width: 25%;" class="text-right">Total</th>
                     </tr>
-                  `
-                    )
-                    .join("")}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${body.items
+                      .map((item, index) => {
+                        const hasDiscount = item.discount && item.finalAmount < item.originalAmount;
+                        return `
+                          <tr>
+                            <td class="item-name">${item.name}</td>
+                            <td class="text-center">${item.quantity}</td>
+                            <td class="text-right">PKR ${item.price.toFixed(2)}</td>
+                            <td class="text-right">
+                              ${hasDiscount ? 
+                                `<div style="text-decoration: line-through; color: #999; font-size: 8px;">PKR ${item.originalAmount.toFixed(2)}</div>
+                                 <div style="color: #4CAF50; font-weight: bold;">PKR ${item.finalAmount.toFixed(2)}</div>` :
+                                `PKR ${item.finalAmount.toFixed(2)}`
+                              }
+                            </td>
+                          </tr>
+                          ${hasDiscount ? 
+                            `<tr>
+                               <td colspan="4" style="font-size: 8px; color: #4CAF50; font-style: italic;">
+                                 ↳ ${item.discount.name} (-PKR ${item.discount.discountAmount?.toFixed(2)})
+                               </td>
+                             </tr>` : ''
+                          }
+                        `;
+                      })
+                      .join("")}
+                  </tbody>
+                </table>
 
-              <div class="total-section">
-                <div>Total Items: ${body.items.length}</div>
-                <div style="font-size: 12px">Total Amount: PKR ${calculatedTotal}</div>
-              </div>
+                <div class="divider"></div>
 
-              <div class="footer">
-                <div>Thank you for your purchase!</div>
-                <div>Please keep this receipt for your records</div>
-                <div style="margin-top: 5px">*** End of Receipt ***</div>
-              </div>
+                <!-- Discount Information -->
+                ${body.totalSavings > 0 ? `
+                  <div class="discount-info">
+                    <div style="font-weight: bold; margin-bottom: 2px;">💰 Savings Applied!</div>
+                    <div>You saved PKR ${body.totalSavings.toFixed(2)} on this purchase</div>
+                  </div>
+                ` : ''}
+
+                <!-- Totals Section -->
+                <div class="totals-section">
+                  <div class="total-row">
+                    <span>Total Items:</span>
+                    <span><strong>${body.items.length}</strong></span>
+                  </div>
+                  ${body.totalSavings > 0 ? `
+                    <div class="total-row">
+                      <span>Subtotal:</span>
+                      <span>PKR ${body.originalAmount.toFixed(2)}</span>
+                    </div>
+                    <div class="total-row savings-highlight">
+                      <span>Total Savings:</span>
+                      <span>-PKR ${body.totalSavings.toFixed(2)}</span>
+                    </div>
+                  ` : ''}
+                  <div class="total-row final-total">
+                    <span>TOTAL AMOUNT:</span>
+                    <span>PKR ${body.totalAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                <div class="solid-divider"></div>
+
+                <!-- Footer -->
+                <div class="footer">
+                  <div class="thank-you">Thank You for Your Purchase!</div>
+                  <div>Your health is our priority</div>
+                  
+                  <div class="qr-placeholder">QR</div>
+                  
+                  <div class="return-policy">
+                    • Medicine returns accepted within 7 days with receipt<br>
+                    • Keep this receipt for warranty claims<br>
+                    • For queries: ${body.pharmacyInfo.contactInfo?.phone || defaultPharmacyInfo.contactInfo.phone}
+                  </div>
+                  
+                  <div style="margin-top: 8px; font-weight: bold;">
+                    Generated by ${body?.pharmacyInfo?.pharmacyName}}
+                  </div>
+                  
+                  <div style="margin-top: 4px; border-top: 1px dashed #000; padding-top: 4px;">
+                    *** End of Receipt ***
+                  </div>
+                </div>
               </div>
             </body>
           </html>
@@ -380,12 +694,28 @@ const AddSale = (props) => {
     try {
       const response = await getAllMedicines(onSuccess, onFailure);
       if (!response) {
-        props.error("Could not fetch medicines");
+        console.error("Could not fetch medicines");
       }
     } catch (err) {
-      props.error("Something Went Wrong");
+      console.error("Something Went Wrong");
     } finally {
       props.setLoading(false);
+    }
+  }, []);
+
+  const getPharmacyInformation = useCallback(async () => {
+    try {
+      await getPharmacyInfo(
+        (data) => {
+          setPharmacyInfo(data);
+        },
+        (error) => {
+          console.warn("Could not fetch pharmacy info, using default:", error);
+          // Keep default pharmacy info if fetch fails
+        }
+      );
+    } catch (err) {
+      console.warn("Error fetching pharmacy info:", err);
     }
   }, []);
 
@@ -407,7 +737,8 @@ const AddSale = (props) => {
 
   useEffect(() => {
     getMedicines();
-  }, [getMedicines]);
+    getPharmacyInformation();
+  }, [getMedicines, getPharmacyInformation]);
 
   const medicinesOptions = useMemo(
     () =>
@@ -440,7 +771,13 @@ const AddSale = (props) => {
 
     validateForm().then((formErrors) => {
       if (Object.keys(formErrors).length === 0) {
-        setCurrentStep(currentStep + 1);
+        const nextStep = currentStep + 1;
+        setCurrentStep(nextStep);
+        
+        // If moving to checkout step (step 1), calculate discounts
+        if (nextStep === 1) {
+          calculateSaleDiscounts(values);
+        }
       } else {
         props.error("Please fill the fields...");
       }
@@ -654,6 +991,169 @@ const AddSale = (props) => {
         );
 
       case 1:
+        // Checkout & Discounts Step
+        const checkoutColumns = [
+          {
+            title: 'Medicine',
+            dataIndex: 'medicine',
+            key: 'medicine',
+            render: (medicine, record) => (
+              <Space direction="vertical" size="small">
+                <strong>{medicine?.name || medicine?.Med_Name}</strong>
+                <Tag color="blue">Qty: {record.quantity}</Tag>
+              </Space>
+            ),
+          },
+          {
+            title: 'Unit Price',
+            dataIndex: ['medicine', 'price'],
+            key: 'unitPrice',
+            render: (price) => `PKR ${price?.toFixed(2) || '0.00'}`,
+          },
+          {
+            title: 'Original Amount',
+            dataIndex: 'originalAmount',
+            key: 'originalAmount',
+            render: (amount) => `PKR ${amount?.toFixed(2) || '0.00'}`,
+          },
+          {
+            title: 'Discount',
+            dataIndex: 'discountApplied',
+            key: 'discount',
+            render: (discount) => {
+              if (!discount) {
+                return <Tag color="default">No Discount</Tag>;
+              }
+              return (
+                <Space direction="vertical" size="small">
+                  <Tag color="green">{discount.name}</Tag>
+                  <span style={{ color: '#52c41a' }}>
+                    -PKR {discount.discountAmount?.toFixed(2)}
+                  </span>
+                </Space>
+              );
+            },
+          },
+          {
+            title: 'Final Amount',
+            dataIndex: 'finalAmount',
+            key: 'finalAmount',
+            render: (amount) => (
+              <strong style={{ color: '#1890ff' }}>
+                PKR {amount?.toFixed(2) || '0.00'}
+              </strong>
+            ),
+          },
+        ];
+
+        return (
+          <div style={{ padding: '20px 0' }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <Title level={4}>Checkout & Apply Discounts</Title>
+              <p>Review your sale items and apply available discounts</p>
+            </div>
+
+            {isCalculatingDiscount && (
+              <Alert
+                message="Calculating available discounts..."
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+              />
+            )}
+            
+            {discountData ? (
+              <>
+                <Table
+                  columns={checkoutColumns}
+                  dataSource={discountData.items}
+                  rowKey={(record, index) => index}
+                  pagination={false}
+                  style={{ marginBottom: 24 }}
+                />
+                
+                <Card>
+                  <Row gutter={16}>
+                    <Col span={6}>
+                      <Statistic
+                        title="Subtotal"
+                        value={discountData.summary.totalOriginalAmount}
+                        precision={2}
+                        prefix="PKR"
+                      />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic
+                        title="Total Discount"
+                        value={discountData.summary.totalDiscountAmount}
+                        precision={2}
+                        prefix="PKR"
+                        valueStyle={{ color: '#52c41a' }}
+                      />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic
+                        title="Total Savings"
+                        value={discountData.summary.totalSavings}
+                        precision={2}
+                        prefix="PKR"
+                        valueStyle={{ color: '#52c41a' }}
+                      />
+                    </Col>
+                    <Col span={6}>
+                      <Statistic
+                        title="Final Total"
+                        value={discountData.summary.totalFinalAmount}
+                        precision={2}
+                        prefix="PKR"
+                        valueStyle={{ color: '#1890ff', fontSize: '24px', fontWeight: 'bold' }}
+                      />
+                    </Col>
+                  </Row>
+                </Card>
+                
+                {discountData.summary.totalSavings > 0 && (
+                  <Alert
+                    message={`Excellent! Customer saves PKR ${discountData.summary.totalSavings.toFixed(2)} with applied discounts!`}
+                    type="success"
+                    showIcon
+                    style={{ marginTop: 16 }}
+                  />
+                )}
+
+                <div style={{ textAlign: 'center', marginTop: 24 }}>
+                  <Button
+                    onClick={() => calculateSaleDiscounts(values)}
+                    loading={isCalculatingDiscount}
+                  >
+                    Recalculate Discounts
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <Card style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <div>
+                  <Title level={4}>Calculate Available Discounts</Title>
+                  <p>Click below to check for applicable discounts on selected medicines</p>
+                  <Button
+                    type="primary"
+                    size="large"
+                    onClick={() => calculateSaleDiscounts(values)}
+                    loading={isCalculatingDiscount}
+                  >
+                    Calculate Discounts
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
+        );
+
+      case 2:
+        // Review & Print Step  
+        const finalTotal = discountData?.summary?.totalFinalAmount || totalAmount;
+        const savings = discountData?.summary?.totalSavings || 0;
+        
         return (
           <Card>
             <div style={{ textAlign: "center", marginBottom: 24 }}>
@@ -677,8 +1177,13 @@ const AddSale = (props) => {
                   <p>
                     <strong>Total Items:</strong> {values.medicines.length}
                   </p>
+                  {savings > 0 && (
+                    <p style={{ color: '#52c41a' }}>
+                      <strong>Total Savings:</strong> PKR {savings.toFixed(2)}
+                    </p>
+                  )}
                   <p>
-                    <strong>Total Amount:</strong> PKR {totalAmount}
+                    <strong>Final Amount:</strong> <span style={{ color: '#1890ff', fontSize: '18px' }}>PKR {finalTotal?.toFixed(2)}</span>
                   </p>
                 </Card>
               </Col>
@@ -691,8 +1196,10 @@ const AddSale = (props) => {
                 <tr>
                   <th>Medicine</th>
                   <th>Quantity</th>
-                  <th>Price</th>
-                  <th>Total</th>
+                  <th>Unit Price</th>
+                  <th>Original Total</th>
+                  {discountData && <th>Discount</th>}
+                  <th>Final Total</th>
                 </tr>
               </thead>
               <tbody>
@@ -700,17 +1207,48 @@ const AddSale = (props) => {
                   const med = medicinesData.find(
                     (m) => m._id === item.Med_Name
                   );
+                  const discountItem = discountData?.items?.[index];
+                  const originalTotal = med?.Med_Price * item.Sale_Qty;
+                  const finalItemTotal = discountItem?.finalAmount || originalTotal;
+                  const itemDiscount = discountItem?.discountApplied;
+                  
                   return (
                     <tr key={index}>
                       <td>{med?.Med_Name}</td>
                       <td>{item.Sale_Qty}</td>
                       <td>PKR {med?.Med_Price}</td>
-                      <td>PKR {med?.Med_Price * item.Sale_Qty}</td>
+                      <td>PKR {originalTotal.toFixed(2)}</td>
+                      {discountData && (
+                        <td>
+                          {itemDiscount ? (
+                            <span style={{ color: '#52c41a' }}>
+                              {itemDiscount.name}<br/>
+                              -PKR {itemDiscount.discountAmount?.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#999' }}>No discount</span>
+                          )}
+                        </td>
+                      )}
+                      <td>
+                        <strong style={{ color: '#1890ff' }}>
+                          PKR {finalItemTotal.toFixed(2)}
+                        </strong>
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+
+            {savings > 0 && (
+              <Alert
+                message={`Great! Your customer is saving PKR ${savings.toFixed(2)} on this purchase!`}
+                type="success"
+                showIcon
+                style={{ marginTop: 16 }}
+              />
+            )}
           </Card>
         );
 
@@ -748,10 +1286,13 @@ const AddSale = (props) => {
           validationSchema={validationSchema[currentStep]}
           onSubmit={async (values, { resetForm }) => {
             if (currentStep === steps.length - 1) {
+              const finalTotal = discountData?.summary?.totalFinalAmount || calculateTotalAmount(values);
+              const savings = discountData?.summary?.totalSavings || 0;
+              
               const generatedInvoice = {
                 invoiceId: generateInvoiceId(),
                 customerId: generateCustomerId(),
-                customerName: values.C_Name,
+                customerName: values.C_Name,                
                 items: values.medicines.map((item) => {
                   const med = medicinesData.find(
                     (m) => m._id === item.Med_Name
@@ -762,13 +1303,13 @@ const AddSale = (props) => {
                     quantity: item.Sale_Qty,
                   };
                 }),
-                totalAmount,
+                totalAmount: finalTotal,
+                totalSavings: savings,
                 date: moment().format("YYYY-MM-DD"),
                 time: moment().format("HH:mm:ss A"),
-                pharmacyName,
-                pharmacyLogo,
+                pharmacyInfo,
               };
-              await handleSaleSubmit(generatedInvoice, resetForm);
+              await handleSaleSubmit(generatedInvoice);
             }
           }}
           validateOnBlur={true}
@@ -793,7 +1334,7 @@ const AddSale = (props) => {
 
                   <Button
                     type="primary"
-                    disabled={!dirty}
+                    disabled={currentStep === 0 && !dirty}
                     onClick={() => {
                       if (currentStep === steps.length - 1) {
                         handleSubmit();
@@ -839,103 +1380,158 @@ const AddSale = (props) => {
                   {Object.keys(invoiceData).length > 0 && (
                     <div
                       ref={invoiceRef}
-                      style={{ width: "58mm", padding: 10, display:"block", margin:"0 auto" }}
+                      style={{ 
+                        width: "80mm", 
+                        padding: 12, 
+                        display: "block", 
+                        margin: "0 auto",
+                        border: "1px solid #ddd",
+                        borderRadius: "8px",
+                        backgroundColor: "#fff",
+                        fontFamily: "'Courier New', monospace",
+                        fontSize: "11px",
+                        lineHeight: "1.4"
+                      }}
                     >
-                      <div style={{ textAlign: "center", marginBottom: 10 }}>
+                      <div style={{ textAlign: "center", marginBottom: 12, paddingBottom: 8, borderBottom: "2px solid #000" }}>
                         <img
-                          src={invoiceData.pharmacyLogo}
+                          src={invoiceData.pharmacyInfo?.pharmacyLogo || defaultPharmacyInfo.pharmacyLogo}
                           alt="Logo"
-                          style={{ width: 50, height: "auto" }}
+                          style={{ width: 50, height: "auto", marginBottom: 8, borderRadius: "50%" }}
                         />
-                        <h3 style={{ margin: "5px 0" }}>
-                          {invoiceData.pharmacyName}
+                        <h3 style={{ margin: "4px 0", fontSize: "16px", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "1px" }}>
+                          {invoiceData.pharmacyInfo?.pharmacyName || defaultPharmacyInfo.pharmacyName}
                         </h3>
-                        <div style={{ fontSize: 12 }}>
-                          Medical Store & Pharmacy
+                        <div style={{ fontSize: 10, fontStyle: "italic", color: "#555" }}>
+                          {invoiceData.pharmacyInfo?.description || defaultPharmacyInfo.description}
                         </div>
-                        <div style={{ fontSize: 10 }}>
-                          Colony No1 Guddu Road, Kashmore
+                        <div style={{ fontSize: 9, margin: "4px 0" }}>
+                          {invoiceData.pharmacyInfo?.address?.street || defaultPharmacyInfo.address.street}<br/>
+                          {invoiceData.pharmacyInfo?.address?.city || defaultPharmacyInfo.address.city}, {invoiceData.pharmacyInfo?.address?.state || defaultPharmacyInfo.address.state}<br/>
+                          Tel: {invoiceData.pharmacyInfo?.contactInfo?.phone || defaultPharmacyInfo.contactInfo.phone}
                         </div>
-                        <div style={{ fontSize: 10 }}>Tel: (0344) 992-1234</div>
+                        <div style={{ fontSize: 8, color: "#666" }}>
+                          License: {invoiceData.pharmacyInfo?.licenseNumber || defaultPharmacyInfo.licenseNumber}
+                        </div>
                       </div>
 
-                      <div
-                        style={{
-                          borderTop: "1px dashed #000",
-                          marginBottom: 10,
-                        }}
-                      />
-
-                      <div style={{ fontSize: 10, marginBottom: 10 }}>
+                      <div style={{ textAlign: "center", margin: "10px 0", padding: "6px 0", background: "#f0f0f0", border: "1px solid #ccc" }}>
+                        <div style={{ fontSize: 14, fontWeight: "bold", marginBottom: 4 }}>SALES INVOICE</div>
                         <div>Invoice #: {invoiceData.invoiceId}</div>
-                        <div>Date: {invoiceData.date}</div>
-                        <div>Time: {invoiceData.time}</div>
-                        <div>Customer: {invoiceData.customerName}</div>
-                        <div>Customer ID: {invoiceData.customerId}</div>
                       </div>
 
-                      <div
-                        style={{
-                          borderTop: "1px dashed #000",
-                          marginBottom: 10,
-                        }}
-                      />
+                      <div style={{ margin: "10px 0", padding: 6, background: "#f9f9f9", border: "1px dashed #999" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0", fontSize: 10 }}>
+                          <span><strong>Customer:</strong></span>
+                          <span>{invoiceData.customerName}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0", fontSize: 10 }}>
+                          <span><strong>Customer ID:</strong></span>
+                          <span>{invoiceData.customerId}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0", fontSize: 10 }}>
+                          <span><strong>Date:</strong></span>
+                          <span>{invoiceData.date}</span>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between", margin: "2px 0", fontSize: 10 }}>
+                          <span><strong>Time:</strong></span>
+                          <span>{invoiceData.time}</span>
+                        </div>
+                      </div>
 
-                      <table
-                        style={{
-                          width: "100%",
-                          fontSize: 10,
-                          borderCollapse: "collapse",
-                        }}
-                      >
+                      <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
+
+                      <table style={{ width: "100%", fontSize: 9, borderCollapse: "collapse", margin: "8px 0" }}>
                         <thead>
-                          <tr>
-                            <th style={{ textAlign: "left" }}>Item</th>
-                            <th style={{ textAlign: "left" }}>Qty</th>
-                            <th style={{ textAlign: "left" }}>Price</th>
-                            <th style={{ textAlign: "left" }}>Total</th>
+                          <tr style={{ background: "#e0e0e0" }}>
+                            <th style={{ textAlign: "left", padding: "4px 2px", fontWeight: "bold", borderBottom: "1px solid #999" }}>Item</th>
+                            <th style={{ textAlign: "center", padding: "4px 2px", fontWeight: "bold", borderBottom: "1px solid #999" }}>Qty</th>
+                            <th style={{ textAlign: "right", padding: "4px 2px", fontWeight: "bold", borderBottom: "1px solid #999" }}>Price</th>
+                            <th style={{ textAlign: "right", padding: "4px 2px", fontWeight: "bold", borderBottom: "1px solid #999" }}>Total</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {invoiceData.items.map((item, index) => (
-                            <tr
-                              key={index}
-                              style={{ borderBottom: "1px dotted #ccc" }}
-                            >
-                              <td>{item.name}</td>
-                              <td>{item.quantity}</td>
-                              <td>{item.price}</td>
-                              <td>{item.price * item.quantity}</td>
-                            </tr>
-                          ))}
+                          {invoiceData.items?.map((item, index) => {
+                            const discountItem = discountData?.items?.[index];
+                            const hasDiscount = discountItem?.discountApplied && discountItem.finalAmount < (item.price * item.quantity);
+                            const finalAmount = discountItem?.finalAmount || (item.price * item.quantity);
+                            
+                            return (
+                              <tr key={index} style={{ borderBottom: "1px dotted #ccc" }}>
+                                <td style={{ padding: "3px 2px", fontWeight: "bold", maxWidth: "30mm", wordWrap: "break-word" }}>
+                                  {item.name}
+                                </td>
+                                <td style={{ padding: "3px 2px", textAlign: "center" }}>{item.quantity}</td>
+                                <td style={{ padding: "3px 2px", textAlign: "right" }}>PKR {item.price.toFixed(2)}</td>
+                                <td style={{ padding: "3px 2px", textAlign: "right" }}>
+                                  {hasDiscount ? (
+                                    <div>
+                                      <div style={{ textDecoration: "line-through", color: "#999", fontSize: "8px" }}>
+                                        PKR {(item.price * item.quantity).toFixed(2)}
+                                      </div>
+                                      <div style={{ color: "#4CAF50", fontWeight: "bold" }}>
+                                        PKR {finalAmount.toFixed(2)}
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    `PKR ${finalAmount.toFixed(2)}`
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
 
-                      <div
-                        style={{
-                          textAlign: "right",
-                          marginTop: 10,
-                          fontWeight: "bold",
-                        }}
-                      >
-                        <div>Total Items: {invoiceData.items.length}</div>
-                        <div style={{ fontSize: 12 }}>
-                          Total Amount: PKR {invoiceData.totalAmount}
+                      <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
+
+                      {(invoiceData.totalSavings || 0) > 0 && (
+                        <div style={{ background: "#e8f5e8", padding: 4, margin: "4px 0", border: "1px dashed #4CAF50", fontSize: 9 }}>
+                          <div style={{ fontWeight: "bold", marginBottom: 2 }}>💰 Savings Applied!</div>
+                          <div>You saved PKR {(invoiceData.totalSavings || 0).toFixed(2)} on this purchase</div>
+                        </div>
+                      )}
+
+                      <div style={{ margin: "10px 0", padding: 8, background: "#f5f5f5", border: "1px solid #ddd" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: 10 }}>
+                          <span>Total Items:</span>
+                          <span><strong>{invoiceData.items?.length || 0}</strong></span>
+                        </div>
+                        {(invoiceData.totalSavings || 0) > 0 && (
+                          <>
+                            <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: 10 }}>
+                              <span>Subtotal:</span>
+                              <span>PKR {((invoiceData.totalAmount || 0) + (invoiceData.totalSavings || 0)).toFixed(2)}</span>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", margin: "3px 0", fontSize: 10, color: "#4CAF50", fontWeight: "bold" }}>
+                              <span>Total Savings:</span>
+                              <span>-PKR {(invoiceData.totalSavings || 0).toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: "bold", padding: "4px 0", borderTop: "2px solid #000", marginTop: 4 }}>
+                          <span>TOTAL AMOUNT:</span>
+                          <span>PKR {(invoiceData.totalAmount || 0).toFixed(2)}</span>
                         </div>
                       </div>
 
-                      <div
-                        style={{
-                          borderTop: "1px dashed #000",
-                          marginTop: 10,
-                          paddingTop: 10,
-                          textAlign: "center",
-                          fontSize: 8,
-                        }}
-                      >
-                        <div>Thank you for your purchase!</div>
-                        <div>Please keep this receipt for your records</div>
-                        <div style={{ marginTop: 5 }}>
+                      <div style={{ borderTop: "2px solid #000", margin: "8px 0" }} />
+
+                      <div style={{ textAlign: "center", marginTop: 12, paddingTop: 8, borderTop: "2px solid #000", fontSize: 8, lineHeight: "1.3" }}>
+                        <div style={{ fontSize: 10, fontWeight: "bold", margin: "4px 0" }}>Thank You for Your Purchase!</div>
+                        <div>Your health is our priority</div>
+                        <div style={{ width: 30, height: 30, background: "#ddd", margin: "8px auto", border: "1px solid #999", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 6 }}>
+                          QR
+                        </div>
+                        <div style={{ fontSize: 7, color: "#666", margin: "2px 0" }}>
+                          • Medicine returns accepted within 7 days with receipt<br/>
+                          • Keep this receipt for warranty claims<br/>
+                          • For queries: {invoiceData.pharmacyInfo?.contactInfo?.phone || defaultPharmacyInfo.contactInfo.phone}
+                        </div>
+                        <div style={{ marginTop: 8, fontWeight: "bold" }}>
+                          Generated by Al Shifa Pharmacy Management System
+                        </div>
+                        <div style={{ marginTop: 4, borderTop: "1px dashed #000", paddingTop: 4 }}>
                           *** End of Receipt ***
                         </div>
                       </div>
