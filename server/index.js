@@ -5,11 +5,11 @@ const mongoose = require('mongoose');
 const helmet = require("helmet")
 const cors = require("cors")
 const cookieParser = require("cookie-parser");
-const mongooseSanitize = require("express-mongo-sanitize")
+// const mongooseSanitize = require("express-mongo-sanitize")
 const rateLimiter = require("express-rate-limit")
 const connectToMongo = require("./db/connectToMongo");
 const errorHandlerMiddleware = require("./middlewares/error-handler");
-const { createCustomError } = require("./errors");
+// const { createCustomError } = require("./errors");
 const UserRouter = require("./routes/user");
 const PurchaseRouter = require("./routes/salepurchase");
 const MedicineRouter = require("./routes/medicine");
@@ -40,13 +40,13 @@ const allowedOrigins = [
 
 app.use(morgan(isProduction ? "combined" : "short"));
 
-app.use(mongooseSanitize());
+//app.use(mongooseSanitize());
 
-app.use(rateLimiter({
-  windowMs: 2 * 60 * 1000, //2minutes
-  max: 100,
-  message: "Too many requests from this IP, please try again later."
-}));
+// app.use(rateLimiter({
+//   windowMs: 2 * 60 * 1000, //2minutes
+//   max: 100,
+//   message: "Too many requests from this IP, please try again later."
+// }));
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -90,10 +90,30 @@ app.get("/", (req, res) => {
   });
 });
 
-// // Health check endpoint for Render
-// app.get('/health', (req, res) => {
-//   res.status(200).json({ status: 'ok' });
-// });
+// Health check endpoint for Render
+app.get("/health", (req, res) => {
+  try {
+    // Check database connection
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+    
+    res.status(200).json({ 
+      status: "OK", 
+      message: "Server is running",
+      environment: process.env.NODE_ENV || 'development',
+      database: dbStatus,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    console.error('Health check error:', error);
+    res.status(500).json({
+      status: "ERROR",
+      message: "Server health check failed",
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 app.get("/test-cookies", (req, res) => {
   res.status(200).json({
