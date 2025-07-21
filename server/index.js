@@ -36,7 +36,7 @@ const allowedOrigins = [
 
 app.use(morgan(isProduction ? "combined" : "short"));
 
-app.use(mongoSanitize());
+app.use(mongooseSanitize());
 
 app.use(rateLimiter({
   windowMs: 2 * 60 * 1000, //2minutes
